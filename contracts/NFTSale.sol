@@ -23,8 +23,6 @@ interface IERC721 {
 contract NFTSale is ReentrancyGuard {
     uint public totalSales;
 
-    address ZERO_ADDR = 0x0000000000000000000000000000000000000000;
-    
     struct Sale {
         bool active;
         bool whitelistingActive;
@@ -55,14 +53,34 @@ contract NFTSale is ReentrancyGuard {
         require(saleDetails[_nftContract].active == false, "Collection previously listed");
         for(uint8 i; i<_erc20Tokens.length; i++){
             require(saleDetails[_nftContract].purchaseToken[i] == address(0), "Invalid TOKEN");
-            require(_erc20Prices[i] != 0, "Invalid PRICE");
             saleDetails[_nftContract].purchaseToken[i] = _erc20Tokens[i];
             saleDetails[_nftContract].purchasePrice[_erc20Tokens[i]] = _erc20Prices[i];
         }
         saleDetails[_nftContract].nativeTokenPrice = _nativeTokenPrice;
         saleDetails[_nftContract].totalPurchaseTokens = _erc20Tokens.length;
         saleDetails[_nftContract].active = true;
-        totalSales = totalSales + 1;
+        totalSales += 1;
+    }
+
+    // Set NFT price in ERC20 tokens
+    function setPurchaseTokenPrice(address _nftContract, address _erc20Token, uint _erc20Price) public onlyNFTContractAdmin(_nftContract){
+        bool existingToken;
+        for(uint8 i; i<saleDetails[_nftContract].totalPurchaseTokens; i++){
+            if(saleDetails[_nftContract].purchaseToken[i] == _erc20Token){
+                saleDetails[_nftContract].purchasePrice[_erc20Token] = _erc20Price;
+                existingToken = true;
+            }
+        }
+        if(!existingToken){
+            saleDetails[_nftContract].totalPurchaseTokens += 1;
+            saleDetails[_nftContract].purchaseToken[saleDetails[_nftContract].totalPurchaseTokens] = _erc20Token;
+            saleDetails[_nftContract].purchasePrice[_erc20Token] = _erc20Price;
+        }
+    }
+
+    // Set NFT price in native tokens
+    function setPurchaseNativeTokenPrice(address _nftContract, uint _nativeTokenPrice) public onlyNFTContractAdmin(_nftContract){
+        saleDetails[_nftContract].nativeTokenPrice = _nativeTokenPrice;
     }
 
     // Pause feature for individual sales
@@ -106,8 +124,8 @@ contract NFTSale is ReentrancyGuard {
         require(IERC721(_nftContract).hasRole(IERC721(_nftContract).MINTER_ROLE(), address(this)), "!MINTER");
         require(saleDetails[_nftContract].active, "!SALE");
         require(saleDetails[_nftContract].whitelistingActive == false || saleDetails[_nftContract].whitelist[msg.sender], "!WHITELISTED");
-        if(_purchaseToken == ZERO_ADDR && msg.value > 0){
-            require(saleDetails[_nftContract].nativeTokenPrice == msg.value, "Insufficient AMOUNT");
+        if(_purchaseToken == address(0)){
+            require(saleDetails[_nftContract].nativeTokenPrice == msg.value, "Incorrect AMOUNT");
             userNativeTokenBalance[msg.sender] += msg.value;
         } else {
             uint price = saleDetails[_nftContract].purchasePrice[_purchaseToken];
