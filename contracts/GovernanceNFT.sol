@@ -29,6 +29,14 @@ contract Governor is ERC721, ERC2981, AccessControl{
     }
 
 
+    function mintToken(address to) external onlyRole(MINTER_ROLE) {
+        uint256 tokenId = _tokenIdCounter.current();
+        require(tokenId < TOKEN_SUPPLY, "Limit Reached");
+        _tokenIdCounter.increment();
+        _safeMint(to, tokenId);
+    } 
+
+
     // to set or update default royalty fee for every token
     function setDefaultRoyalty(address _receiver, uint96 _royaltyRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setDefaultRoyalty(_receiver, _royaltyRate);
@@ -58,13 +66,7 @@ contract Governor is ERC721, ERC2981, AccessControl{
         _grantRole(MINTER_ROLE, _minter);
     }
 
-    // User with Minter Role can mint token by calling this function
-    function mintToken(address to) external onlyRole(MINTER_ROLE) {
-         uint256 tokenId = _tokenIdCounter.current();
-        require(tokenId < TOKEN_SUPPLY, "Limit Reached");
-        _tokenIdCounter.increment();
-        _safeMint(to, tokenId);
-    } 
+
 
     //to withdraw native currency(if any)
     function withdrawFund(address destination) external onlyRole(DEFAULT_ADMIN_ROLE) returns(bool){
