@@ -2,6 +2,7 @@
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -16,8 +17,9 @@ contract Governor is ERC721, ERC2981, AccessControl{
     Counters.Counter private _tokenIdCounter;
 
     uint public TOKEN_SUPPLY;
-    string public baseURI;
     address TREASURY;
+    string public baseURI;
+   
 
 
     constructor(address treasury,string memory _baseUri, uint96 _royaltyRate) ERC721("Solidefied Governor", "POWER") {
@@ -69,15 +71,22 @@ contract Governor is ERC721, ERC2981, AccessControl{
 
 
     //to withdraw native currency(if any)
-    function withdrawFund(address destination) external onlyRole(DEFAULT_ADMIN_ROLE) returns(bool){
-        (bool success, ) = destination.call{value: getBalance()}("");
+    function withdrawAccidentalETH() external onlyRole(DEFAULT_ADMIN_ROLE) returns(bool){
+        (bool success, ) = TREASURY.call{value: getBalance()}("");
         return success;
     }
-// Add function to revo any ERC20 tokens sent by accident
 
-// function transferAnyERC20Tokens(address _tokenAddr, address _to, uint _amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
-//         IERC20(_tokenAddr).transfer(_to, _amount);
-//     }
+    function withdrawAccidentalToken(address _erc20Token)
+        public
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        // In case of Non standard ERC20 tokens change this function
+        require(IERC20(_erc20Token).balanceOf(address(this)) > 0, "!BALANCE");
+        IERC20(_erc20Token).transfer(
+            TREASURY,
+            IERC20(_erc20Token).balanceOf(address(this))
+        );
+    }
 
 
 
