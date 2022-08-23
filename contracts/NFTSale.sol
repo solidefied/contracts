@@ -43,9 +43,9 @@ contract NFTSale is ReentrancyGuard {
     //NFT collection address => Sale details
     mapping(address => Sale) saleDetails;
     //User address => Token address => balance
-    mapping(address => mapping(address => uint256)) public userTokenBalance;
+    mapping(address => mapping(address => uint256)) public saleTokenBalance;
     //User address => Native token balance
-    mapping(address => uint256) public userNativeTokenBalance;
+    mapping(address => uint256) public saleNativeTokenBalance;
 
     // Only NFT contract admins can add sale
     modifier onlyNFTContractAdmin(address _nftContract) {
@@ -210,13 +210,13 @@ contract NFTSale is ReentrancyGuard {
                 saleDetails[_nftContract].nativeTokenPrice == msg.value,
                 "Incorrect AMOUNT"
             );
-            userNativeTokenBalance[msg.sender] += msg.value;
+            saleNativeTokenBalance[_nftContract] += msg.value;
         } else {
             uint256 price = saleDetails[_nftContract].purchasePrice[
                 _purchaseToken
             ];
             // Keeping earnings in sale contract
-            userTokenBalance[msg.sender][_purchaseToken] += price;
+            saleTokenBalance[_nftContract][_purchaseToken] += price;
             IERC20(_purchaseToken).transferFrom(
                 msg.sender,
                 address(this),
@@ -227,17 +227,19 @@ contract NFTSale is ReentrancyGuard {
         IERC721(_nftContract).mintToken(msg.sender);
     }
 
-    function withdrawTokenPayments(address _erc20Token) public nonReentrant {
-        require(userTokenBalance[msg.sender][_erc20Token] > 0, "!BALANCE");
-        uint256 balance = userTokenBalance[msg.sender][_erc20Token];
-        userTokenBalance[msg.sender][_erc20Token] = 0;
-        IERC20(_erc20Token).transfer(msg.sender, balance);
+    // Ony NFT admin can withdraw ERC20 tokens from NFT sale
+    function withdrawTokenPayments(address _nftContract, address _erc20Token, address _receiver) public onlyNFTContractAdmin(_nftContract) nonReentrant {
+        require(saleTokenBalance[_nftContract][_erc20Token] > 0, "!BALANCE");
+        uint256 balance = saleTokenBalance[_nftContract][_erc20Token];
+        saleTokenBalance[_nftContract][_erc20Token] = 0;
+        IERC20(_erc20Token).transfer(_receiver, balance);
     }
 
-    function withdrawNativeTokenPayments() public nonReentrant {
-        require(userNativeTokenBalance[msg.sender] > 0, "!BALANCE");
-        uint256 balance = userNativeTokenBalance[msg.sender];
-        userNativeTokenBalance[msg.sender] = 0;
-        payable(msg.sender).transfer(balance);
+    // Ony NFT admin can withdraw tokens from NFT sale
+    function withdrawNativeTokenPayments(address _nftContract, address _receiver) public onlyNFTContractAdmin(_nftContract) nonReentrant {
+        require(saleNativeTokenBalance[_nftContract] > 0, "!BALANCE");
+        uint256 balance = saleNativeTokenBalance[_nftContract];
+        saleNativeTokenBalance[_nftContract] = 0;
+        payable(_receiver).transfer(balance);
     }
 }
