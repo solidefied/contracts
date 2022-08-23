@@ -45,6 +45,10 @@ contract Governor is ERC721, ERC2981, AccessControl{
         baseURI = _uri;
     }
 
+    function setTreasury(address treasury) external onlyRole(DEFAULT_ADMIN_ROLE){
+        TREASURY = treasury;
+    }
+
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
     }
