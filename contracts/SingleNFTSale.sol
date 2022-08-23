@@ -36,7 +36,7 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
     uint256 public priceInNativeTokens;
 
     address public nftContract;
-    address TREASURY;
+    address public TREASURY;
 
     // Token index => Token address
     mapping(uint256 => address) purchaseTokens;
