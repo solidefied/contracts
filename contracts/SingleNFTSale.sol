@@ -30,11 +30,13 @@ interface IERC721 {
 
 contract SingleNFTSale is ReentrancyGuard, Ownable {
     bool public saleActive;
+    bool public freeMint;
 
     uint256 totalPurchaseTokens;
     uint256 public priceInNativeTokens;
 
     address public nftContract;
+    address TREASURY;
 
     // Token index => Token address
     mapping(uint256 => address) purchaseTokens;
@@ -59,7 +61,8 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         address _nftContract,
         address[] memory _erc20Tokens,
         uint256[] memory _erc20Prices,
-        uint256 _priceInNativeTokens
+        uint256 _priceInNativeTokens,
+        address _treasury
     ) {
         nftContract = _nftContract;
         for (uint8 i; i < _erc20Tokens.length; i++) {
@@ -70,6 +73,16 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         priceInNativeTokens = _priceInNativeTokens;
         totalPurchaseTokens = _erc20Tokens.length;
         saleActive = true;
+        TREASURY = _treasury;
+    }
+
+    // Set treasury where tokens will get withdrawn
+    function setTreasury(address _treasury) public onlyOwner {
+        TREASURY = _treasury;
+    }
+
+    function setFreeMint(bool _freeMint) public onlyOwner {
+        freeMint = _freeMint;
     }
 
     // Set NFT price in ERC20 tokens
@@ -99,7 +112,7 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         priceInNativeTokens = _priceInNativeTokens;
     }
 
-    // Pause feature for individual sales
+    // Pause sale
     function setSaleActive(bool _active) public onlyOwner {
         saleActive = _active;
     }
@@ -122,14 +135,24 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
     }
 
     // NFT collection owner need to give minter role to sale contract to let users purchase NFTs
+    // NFT contract need to expose mintToken function
     function purchaseNFT(address _purchaseToken)
         public
         purchaseEnabled
         nonReentrant
     {
-        uint256 price = priceInERC20Tokens[_purchaseToken];
-        IERC20(_purchaseToken).transferFrom(msg.sender, address(this), price);
-        // NFT contract need to expose mintToken function
+        if (!freeMint) {
+            require(priceInERC20Tokens[_purchaseToken] > 0, "Incorrect AMOUNT");
+            // Customize for non standard ERC20 tokens
+            require(
+                IERC20(_purchaseToken).transferFrom(
+                    msg.sender,
+                    address(this),
+                    priceInERC20Tokens[_purchaseToken]
+                ),
+                "!TRANSFER"
+            );
+        }
         IERC721(nftContract).mintToken(msg.sender);
     }
 
@@ -139,29 +162,14 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         purchaseEnabled
         nonReentrant
     {
-        require(priceInNativeTokens == msg.value, "Incorrect AMOUNT");
-        // NFT contract need to expose mintToken function
+        if (!freeMint) {
+            require(priceInNativeTokens == msg.value, "Incorrect AMOUNT");
+        }
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    // Ony NFT admin can withdraw ERC20 tokens from NFT sale
-    // function withdrawTokenPayments(address _nftContract, address _erc20Token, address _receiver) public onlyNFTContractAdmin(_nftContract) nonReentrant {
-    //     require(saleTokenBalance[_nftContract][_erc20Token] > 0, "!BALANCE");
-    //     uint256 balance = saleTokenBalance[_nftContract][_erc20Token];
-    //     saleTokenBalance[_nftContract][_erc20Token] = 0;
-    //     IERC20(_erc20Token).transfer(_receiver, balance);
-    // }
-
-    // // Ony NFT admin can withdraw tokens from NFT sale
-    // function withdrawNativeTokenPayments(address _nftContract, address _receiver) public onlyNFTContractAdmin(_nftContract) nonReentrant {
-    //     require(saleNativeTokenBalance[_nftContract] > 0, "!BALANCE");
-    //     uint256 balance = saleNativeTokenBalance[_nftContract];
-    //     saleNativeTokenBalance[_nftContract] = 0;
-    //     payable(_receiver).transfer(balance);
-    // }
-
-    // Admin can withdraw all tokens
-    function withdrawTokenPayments(address _erc20Token, address _receiver)
+    // Admin can withdraw all tokens to TREASURY
+    function withdrawTokenPayments(address _erc20Token)
         public
         onlyOwner
         nonReentrant
@@ -169,18 +177,14 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         // In case of Non standard ERC20 tokens change this function
         require(IERC20(_erc20Token).balanceOf(address(this)) > 0, "!BALANCE");
         IERC20(_erc20Token).transfer(
-            _receiver,
+            TREASURY,
             IERC20(_erc20Token).balanceOf(address(this))
         );
     }
 
-    // Admin can withdraw all native tokens
-    function withdrawNativeTokenPayments(address _receiver)
-        public
-        onlyOwner
-        nonReentrant
-    {
+    // Admin can withdraw all native tokens to TREASURY
+    function withdrawNativeTokenPayments() public onlyOwner nonReentrant {
         require(address(this).balance > 0, "!BALANCE");
-        payable(_receiver).transfer(address(this).balance);
+        payable(TREASURY).transfer(address(this).balance);
     }
 }

@@ -32,6 +32,7 @@ contract NFTSale is ReentrancyGuard {
 
     struct Sale {
         bool active;
+        bool freeMint;
         bool whitelistingActive;
         uint256 nativeTokenPrice;
         uint256 totalPurchaseTokens;
@@ -55,6 +56,23 @@ contract NFTSale is ReentrancyGuard {
                 msg.sender
             ),
             "!NFT Contract ADMIN"
+        );
+        _;
+    }
+
+    modifier purchaseEnabled(address _nftContract) {
+        require(
+            IERC721(_nftContract).hasRole(
+                IERC721(_nftContract).MINTER_ROLE(),
+                address(this)
+            ),
+            "!MINTER"
+        );
+        require(saleDetails[_nftContract].active, "!SALE");
+        require(
+            saleDetails[_nftContract].whitelistingActive == false ||
+                saleDetails[_nftContract].whitelist[msg.sender],
+            "!WHITELISTED"
         );
         _;
     }
@@ -104,11 +122,11 @@ contract NFTSale is ReentrancyGuard {
             }
         }
         if (!existingToken) {
-            saleDetails[_nftContract].totalPurchaseTokens += 1;
             saleDetails[_nftContract].purchaseToken[
                 saleDetails[_nftContract].totalPurchaseTokens
             ] = _erc20Token;
             saleDetails[_nftContract].purchasePrice[_erc20Token] = _erc20Price;
+            saleDetails[_nftContract].totalPurchaseTokens += 1;
         }
     }
 
@@ -118,6 +136,14 @@ contract NFTSale is ReentrancyGuard {
         uint256 _nativeTokenPrice
     ) public onlyNFTContractAdmin(_nftContract) {
         saleDetails[_nftContract].nativeTokenPrice = _nativeTokenPrice;
+    }
+
+    // Set free mint
+    function setFreeMint(address _nftContract, bool _freeMint)
+        public
+        onlyNFTContractAdmin(_nftContract)
+    {
+        saleDetails[_nftContract].freeMint = _freeMint;
     }
 
     // Pause feature for individual sales
@@ -187,48 +213,46 @@ contract NFTSale is ReentrancyGuard {
     // NFT collection owner need to give minter role to sale contract to let users purchase NFTs
     // To purchase using ERC20 token pass ERC20 token address in _purchaseToken
     // To purchase using native tokens send native token while _purchaseToken is ZERO_ADDR
+    // NFT contract need to expose mintToken function
     function purchaseNFT(address _nftContract, address _purchaseToken)
         public
         payable
+        purchaseEnabled(_nftContract)
         nonReentrant
     {
-        require(
-            IERC721(_nftContract).hasRole(
-                IERC721(_nftContract).MINTER_ROLE(),
-                address(this)
-            ),
-            "!MINTER"
-        );
-        require(saleDetails[_nftContract].active, "!SALE");
-        require(
-            saleDetails[_nftContract].whitelistingActive == false ||
-                saleDetails[_nftContract].whitelist[msg.sender],
-            "!WHITELISTED"
-        );
-        if (_purchaseToken == address(0)) {
-            require(
-                saleDetails[_nftContract].nativeTokenPrice == msg.value,
-                "Incorrect AMOUNT"
-            );
-            saleNativeTokenBalance[_nftContract] += msg.value;
-        } else {
-            uint256 price = saleDetails[_nftContract].purchasePrice[
-                _purchaseToken
-            ];
-            // Keeping earnings in sale contract
-            saleTokenBalance[_nftContract][_purchaseToken] += price;
-            IERC20(_purchaseToken).transferFrom(
-                msg.sender,
-                address(this),
-                price
-            );
+        if (!saleDetails[_nftContract].freeMint) {
+            if (_purchaseToken == address(0)) {
+                require(
+                    saleDetails[_nftContract].nativeTokenPrice == msg.value,
+                    "Incorrect AMOUNT"
+                );
+                saleNativeTokenBalance[_nftContract] += msg.value;
+            } else {
+                uint256 price = saleDetails[_nftContract].purchasePrice[
+                    _purchaseToken
+                ];
+                require(price > 0, "Incorrect AMOUNT");
+                saleTokenBalance[_nftContract][_purchaseToken] += price;
+                // Customize for non standard ERC20 tokens
+                require(
+                    IERC20(_purchaseToken).transferFrom(
+                        msg.sender,
+                        address(this),
+                        price
+                    ),
+                    "!TRANSFER"
+                );
+            }
         }
-        // NFT contract need to expose mintToken function
         IERC721(_nftContract).mintToken(msg.sender);
     }
 
     // Ony NFT admin can withdraw ERC20 tokens from NFT sale
-    function withdrawTokenPayments(address _nftContract, address _erc20Token, address _receiver) public onlyNFTContractAdmin(_nftContract) nonReentrant {
+    function withdrawTokenPayments(
+        address _nftContract,
+        address _erc20Token,
+        address _receiver
+    ) public onlyNFTContractAdmin(_nftContract) nonReentrant {
         require(saleTokenBalance[_nftContract][_erc20Token] > 0, "!BALANCE");
         uint256 balance = saleTokenBalance[_nftContract][_erc20Token];
         saleTokenBalance[_nftContract][_erc20Token] = 0;
@@ -236,7 +260,10 @@ contract NFTSale is ReentrancyGuard {
     }
 
     // Ony NFT admin can withdraw tokens from NFT sale
-    function withdrawNativeTokenPayments(address _nftContract, address _receiver) public onlyNFTContractAdmin(_nftContract) nonReentrant {
+    function withdrawNativeTokenPayments(
+        address _nftContract,
+        address _receiver
+    ) public onlyNFTContractAdmin(_nftContract) nonReentrant {
         require(saleNativeTokenBalance[_nftContract] > 0, "!BALANCE");
         uint256 balance = saleNativeTokenBalance[_nftContract];
         saleNativeTokenBalance[_nftContract] = 0;
