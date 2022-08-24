@@ -8,15 +8,20 @@ describe("Seed NFT", () => {
   var acc4;
   var minterRoleBytes;
   var seedNft;
+  var token;
 
   before("Deployement", async () => {
     [acc1, acc2, acc3, acc4] = await ethers.getSigners();
     const seedNftContract = await ethers.getContractFactory("Angel");
-    seedNft = await seedNftContract.deploy(acc1.address, "xyz.com");
+    seedNft = await seedNftContract.deploy(acc4.address, "xyz.com"); //acc4 as trasuryAddress
     await seedNft.deployed();
     const setMinterTxn = await seedNft.setMinterRole(acc1.address); //assigned minter role to acc1
     await setMinterTxn.wait();
     minterRoleBytes = await seedNft.MINTER_ROLE();
+    const tokenContract = await ethers.getContractFactory("Token2");
+    token = await tokenContract.deploy();
+    const tokenTrnsferTxn = await token.connect(acc1).transfer(governance.address, ethers.BigNumber.from(10).pow(18).mul(1000))
+    await tokenTrnsferTxn.wait(); 
   });
 
   it("Initialiation check", async () => {
@@ -48,7 +53,7 @@ describe("Seed NFT", () => {
     });
 
     it("Error should generated when passed address is Null", async () => {
-      await expect(seedNft.connect(acc1).mintToken("0x0000000000000000000000000000000000000000")).to.be.revertedWith("Receiver required");
+      await expect(seedNft.connect(acc1).mintToken("0x0000000000000000000000000000000000000000")).to.be.revertedWith("ERC721: mint to the zero address");
     });
   });
 
@@ -62,16 +67,6 @@ describe("Seed NFT", () => {
     });
   });
 
-  // describe("Transfer NFT to acc3", () => {
-  //   before("safe transfer funcs", async () => {
-  //     const TransferFromTxn = await seedNft.connect(acc2).transferFrom(acc2.address, acc3.address, 0);
-  //     await TransferFromTxn.wait();
-  //   });
-  //   it("Check token is transfered or not", async () => {
-  //     expect(await seedNft.ownerOf(0)).to.equal(acc3.address);
-  //   });
-  // });
-
   describe("Change Total supply", () => {
     before("set token supply func", async () => {
       const SetTokenSupplyTxn = await seedNft.connect(acc1).setTokenSupply(260);
@@ -82,23 +77,13 @@ describe("Seed NFT", () => {
     });
   });
 
-  // describe("Grant Minter Role to acc2", () => {
-  //   before("grant role func", async () => {
-  //     const GrantMinterRoleTxn = await seedNft.grantRole(minterRoleBytes, acc2.address);
-  //     await GrantMinterRoleTxn.wait();
-  //   });
-  //   it("Check that acc2 has a minter role", async () => {
-  //     expect(await seedNft.hasRole(minterRoleBytes, acc2.address)).to.equal(true);
-  //   });
-  // });
-
-  // describe("Revoke Minter Role from acc2", () => {
-  //   before("revoke role func", async () => {
-  //     const RevokeMinterRoleTxn = await seedNft.connect(acc1).revokeRole(minterRoleBytes, acc2.address);
-  //     await RevokeMinterRoleTxn.wait();
-  //   });
-  //   it("Check that acc2 has not a minter role", async () => {
-  //     expect(await seedNft.hasRole(minterRoleBytes, acc2.address)).to.equal(false);
-  //   });
-  // });
+  describe("Revoke Minter Role from acc2", () => {
+    before("revoke role func", async () => {
+      const RevokeMinterRoleTxn = await seedNft.connect(acc1).revokeRole(minterRoleBytes, acc2.address);
+      await RevokeMinterRoleTxn.wait();
+    });
+    it("Check that acc2 has not a minter role", async () => {
+      expect(await seedNft.hasRole(minterRoleBytes, acc2.address)).to.equal(false);
+    });
+  });
 });
