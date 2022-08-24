@@ -22,7 +22,7 @@ interface IERC721 {
         view
         returns (bool);
 
-    function ADMIN_ROLE() external view returns (bytes32);
+    function DEFAULT_ADMIN_ROLE() external view returns (bytes32); //not available in governance NFT
 
     function MINTER_ROLE() external view returns (bytes32);
 }
@@ -52,7 +52,7 @@ contract NFTSale is ReentrancyGuard {
     modifier onlyNFTContractAdmin(address _nftContract) {
         require(
             IERC721(_nftContract).hasRole(
-                IERC721(_nftContract).ADMIN_ROLE(),
+                IERC721(_nftContract).DEFAULT_ADMIN_ROLE(),
                 msg.sender
             ),
             "!NFT Contract ADMIN"
@@ -82,10 +82,10 @@ contract NFTSale is ReentrancyGuard {
     // Prices should be w.r.t coresponding token decimals
     function addSale(
         address _nftContract,
-        address[] memory _erc20Tokens,
-        uint256[] memory _erc20Prices,
+        address[] calldata _erc20Tokens,
+        uint256[] calldata _erc20Prices,
         uint256 _nativeTokenPrice
-    ) public onlyNFTContractAdmin(_nftContract) {
+    ) external onlyNFTContractAdmin(_nftContract) {
         require(
             saleDetails[_nftContract].active == false,
             "Collection previously listed"
@@ -111,7 +111,7 @@ contract NFTSale is ReentrancyGuard {
         address _nftContract,
         address _erc20Token,
         uint256 _erc20Price
-    ) public onlyNFTContractAdmin(_nftContract) {
+    ) external onlyNFTContractAdmin(_nftContract) {
         bool existingToken;
         for (uint8 i; i < saleDetails[_nftContract].totalPurchaseTokens; i++) {
             if (saleDetails[_nftContract].purchaseToken[i] == _erc20Token) {
@@ -134,13 +134,13 @@ contract NFTSale is ReentrancyGuard {
     function setPurchaseNativeTokenPrice(
         address _nftContract,
         uint256 _nativeTokenPrice
-    ) public onlyNFTContractAdmin(_nftContract) {
+    ) external onlyNFTContractAdmin(_nftContract) {
         saleDetails[_nftContract].nativeTokenPrice = _nativeTokenPrice;
     }
 
     // Set free mint
     function setFreeMint(address _nftContract, bool _freeMint)
-        public
+        external
         onlyNFTContractAdmin(_nftContract)
     {
         saleDetails[_nftContract].freeMint = _freeMint;
@@ -148,7 +148,7 @@ contract NFTSale is ReentrancyGuard {
 
     // Pause feature for individual sales
     function setSaleActive(address _nftContract, bool _active)
-        public
+        external
         onlyNFTContractAdmin(_nftContract)
     {
         saleDetails[_nftContract].active = _active;
@@ -156,7 +156,7 @@ contract NFTSale is ReentrancyGuard {
 
     // Set whitelist addresses
     function setWhitelist(address _nftContract, address[] calldata _whitelist)
-        public
+        external
         onlyNFTContractAdmin(_nftContract)
     {
         for (uint256 i; i < _whitelist.length; i++) {
@@ -166,7 +166,7 @@ contract NFTSale is ReentrancyGuard {
 
     // Enable/disable whitelisting
     function setWhitelistingActive(address _nftContract, bool _active)
-        public
+        external
         onlyNFTContractAdmin(_nftContract)
     {
         saleDetails[_nftContract].whitelistingActive = _active;
@@ -174,7 +174,7 @@ contract NFTSale is ReentrancyGuard {
 
     // Get sale details
     function getSaleDetails(address _nftContract)
-        public
+        external
         view
         returns (
             address[] memory _purchaseToken,
@@ -203,7 +203,7 @@ contract NFTSale is ReentrancyGuard {
 
     // Check if whitelisted in sale
     function checkUserWhitelisted(address _nftContract, address _userAddress)
-        public
+        external
         view
         returns (bool _whitelisted)
     {
@@ -215,7 +215,7 @@ contract NFTSale is ReentrancyGuard {
     // To purchase using native tokens send native token while _purchaseToken is ZERO_ADDR
     // NFT contract need to expose mintToken function
     function purchaseNFT(address _nftContract, address _purchaseToken)
-        public
+        external
         payable
         purchaseEnabled(_nftContract)
         nonReentrant
@@ -252,7 +252,7 @@ contract NFTSale is ReentrancyGuard {
         address _nftContract,
         address _erc20Token,
         address _receiver
-    ) public onlyNFTContractAdmin(_nftContract) nonReentrant {
+    ) external onlyNFTContractAdmin(_nftContract) nonReentrant {
         require(saleTokenBalance[_nftContract][_erc20Token] > 0, "!BALANCE");
         uint256 balance = saleTokenBalance[_nftContract][_erc20Token];
         saleTokenBalance[_nftContract][_erc20Token] = 0;
@@ -263,7 +263,7 @@ contract NFTSale is ReentrancyGuard {
     function withdrawNativeTokenPayments(
         address _nftContract,
         address _receiver
-    ) public onlyNFTContractAdmin(_nftContract) nonReentrant {
+    ) external onlyNFTContractAdmin(_nftContract) nonReentrant {
         require(saleNativeTokenBalance[_nftContract] > 0, "!BALANCE");
         uint256 balance = saleNativeTokenBalance[_nftContract];
         saleNativeTokenBalance[_nftContract] = 0;

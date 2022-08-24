@@ -77,17 +77,17 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
     }
 
     // Set treasury where tokens will get withdrawn
-    function setTreasury(address _treasury) public onlyOwner {
+    function setTreasury(address _treasury) external onlyOwner {
         TREASURY = _treasury;
     }
 
-    function setFreeMint(bool _freeMint) public onlyOwner {
+    function setFreeMint(bool _freeMint) external onlyOwner {
         freeMint = _freeMint;
     }
 
     // Set NFT price in ERC20 tokens
     function setPurchaseTokenPrice(address _erc20Token, uint256 _erc20Price)
-        public
+        external
         onlyOwner
     {
         bool existingToken;
@@ -106,20 +106,20 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
 
     // Set NFT price in native tokens
     function setPurchaseNativeTokenPrice(uint256 _priceInNativeTokens)
-        public
+        external
         onlyOwner
     {
         priceInNativeTokens = _priceInNativeTokens;
     }
 
     // Pause sale
-    function setSaleActive(bool _active) public onlyOwner {
+    function setSaleActive(bool _active) external onlyOwner {
         saleActive = _active;
     }
 
     // Get purchase token details
     function getPurchaseTokenDetails()
-        public
+        external
         view
         returns (
             address[] memory _purchaseToken,
@@ -137,7 +137,7 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
     // NFT collection owner need to give minter role to sale contract to let users purchase NFTs
     // NFT contract need to expose mintToken function
     function purchaseNFT(address _purchaseToken)
-        public
+        external
         purchaseEnabled
         nonReentrant
     {
@@ -157,7 +157,7 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
     }
 
     function purchaseNFTByNativeTokens()
-        public
+        external
         payable
         purchaseEnabled
         nonReentrant
@@ -170,7 +170,7 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
 
     // Admin can withdraw all tokens to TREASURY
     function withdrawTokenPayments(address _erc20Token)
-        public
+        external
         onlyOwner
         nonReentrant
     {
@@ -183,7 +183,7 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
     }
 
     // Admin can withdraw all native tokens to TREASURY
-    function withdrawNativeTokenPayments() public onlyOwner nonReentrant {
+    function withdrawNativeTokenPayments() external onlyOwner nonReentrant {
         require(address(this).balance > 0, "!BALANCE");
         payable(TREASURY).transfer(address(this).balance);
     }
