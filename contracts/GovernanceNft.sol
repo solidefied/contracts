@@ -20,34 +20,34 @@ pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol"; 
 
-
-contract Angel is ERC721, AccessControl{
-
+contract Governor is ERC721, ERC2981, AccessControl{
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-   using Counters for Counters.Counter;
+    using Counters for Counters.Counter;
     using Strings for uint256;
     Counters.Counter private _tokenIdCounter;
 
     uint public TOKEN_SUPPLY;
     address TREASURY;
     string public baseURI;
+   
 
 
-    constructor(address treasury,string memory _baseUri) ERC721("Solidefied Angel", "ANGEL") {
+    constructor(address treasury,string memory _baseUri, uint96 _royaltyRate) ERC721("Solidefied Governor", "POWER") {
         TREASURY = treasury;
+        _setDefaultRoyalty(TREASURY, _royaltyRate);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        TOKEN_SUPPLY = 1000;
+        TOKEN_SUPPLY = 250;
         baseURI = _baseUri;
     }
 
 
     function mintToken(address to) external onlyRole(MINTER_ROLE) {
-        
         uint256 tokenId = _tokenIdCounter.current();
         require(tokenId < TOKEN_SUPPLY, "Limit Reached");
         _tokenIdCounter.increment();
@@ -55,13 +55,24 @@ contract Angel is ERC721, AccessControl{
     } 
 
 
+    // to set or update default royalty fee for every token
+    function setDefaultRoyalty(address _receiver, uint96 _royaltyRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setDefaultRoyalty(_receiver, _royaltyRate);
+    }
+
+    // to set or update total token supply
     function setTokenSupply(uint256 _tokenSupply) external onlyRole(DEFAULT_ADMIN_ROLE) {
         TOKEN_SUPPLY = _tokenSupply;
     }
 
 
+     // to set or update the baseUri.
     function setBaseURI(string memory _uri) external onlyRole(DEFAULT_ADMIN_ROLE){
         baseURI = _uri;
+    }
+
+    function setTreasury(address treasury) external onlyRole(DEFAULT_ADMIN_ROLE){
+        TREASURY = treasury;
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
@@ -74,30 +85,25 @@ contract Angel is ERC721, AccessControl{
     }
 
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId
-    ) internal override virtual {
-        require(from == address(0) || to == address (0), "Not Transferable");
-    }
 
     //to withdraw native currency(if any)
-       function withdrawAccidentalETH() external onlyRole(DEFAULT_ADMIN_ROLE) returns(bool){
+    function withdrawAccidentalETH() external onlyRole(DEFAULT_ADMIN_ROLE) returns(bool){
         (bool success, ) = TREASURY.call{value: getBalance()}("");
         return success;
     }
 
-    function withdrawAccidentalToken(address _tokenAddress)
+    function withdrawAccidentalToken(address _erc20Token)
         public
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(IERC20(_tokenAddress).balanceOf(address(this)) > 0, "Low Balance");
-        IERC20(_tokenAddress).transfer(
+        // In case of Non standard ERC20 tokens change this function
+        require(IERC20(_erc20Token).balanceOf(address(this)) > 0, "!BALANCE");
+        IERC20(_erc20Token).transfer(
             TREASURY,
-            IERC20(_tokenAddress).balanceOf(address(this))
+            IERC20(_erc20Token).balanceOf(address(this))
         );
     }
+
 
 
     function getBalance() public view returns(uint) {
@@ -109,7 +115,7 @@ contract Angel is ERC721, AccessControl{
         require(_exists(_tokenId),"Invalid TokenId");
 
          return bytes(baseURI).length > 0
-            ? string(abi.encodePacked(baseURI))
+            ? string(abi.encodePacked(baseURI, _tokenId.toString()))
             : "";
     }
 
@@ -119,14 +125,15 @@ contract Angel is ERC721, AccessControl{
         return _tokenIdCounter.current();
     }
 
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, AccessControl)
+        override(ERC721, AccessControl, ERC2981)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
     }
-    
+
     receive() external payable {}
 }

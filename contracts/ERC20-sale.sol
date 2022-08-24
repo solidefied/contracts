@@ -1,11 +1,30 @@
+/*
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░▒▓▓▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░▒▒▓▓▒░░░░░▒▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░▒▓▓▒░░░░░░░░░░░░▒▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░▓▓▒░░░░░░░░░░░░░░░░░░▒▓█▓░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒░░▓▓▒░░░░░░░░░▒▒▒░░░░░░░░░░░░░░▒▓▓▓░▒▓▓░░░░░░░░░░░░░░░░░░░░░▒▒░░
+░██▓▓▒░░░░░░░░░░░░░░▒▓▓▒▓█░░░░░▓▓▓▓▓▓▓▒░░░░░░░░░░░░░░▓▓▒░░░▒░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░▓▓▒░░░▒░░░░░░░░░░░░░░░░░░░░░░▓▓░░
+░██████▓▒░░░░░░░▒▓▓█▒░░░▓█░░░░▒▓▓░░░░▒▒░░░▒▓▓▓▓▓▓▒░░░▓▓▒░░▓▓▒░░░▒▓▓▓▓▒▓▓▓░░░▒▓▓▓▓▓▒░░▒▓▓▓▓▓░▒▓▓░░░▒▓▓▓▓▓▓░░░░▒▓▓▓▓▓▒▓▓░░
+░█████████▓▓▒▒▓███▒░░░░░▓█░░░░░▓▓▓▓▒▒░░░░▒▓▓▒░░░▓▓▓░░▓▓▒░░▓▓▒░░▓▓▒░░░▒▓▓▓░░▓▓▒░░░▒▓▓░░▒▓▓░░░▒▓▓░░▓▓▓░░░░▓▓▒░▓▓▓▒░░░▓▓▓░░
+░███████████████▓░░░░░░░▓█░░░░░░░░░▒▓▓▓░░▓▓▒░░░░▒▓▓░░▓▓▒░░▓▓▒░▒▓▓░░░░░▓▓▓░▒▓▓▓▓▓▓▓▓▓▒░▒▓▓░░░▒▓▓░░▓▓▓▓▓▓▓▓▓▒░▓▓▒░░░░░▓▓░░
+░██████████████▓░░░░░░░░▓█░░░░▒▓▓░░░▒▓▓░░▒▓▓░░░░▓▓▓░░▓▓▒░░▓▓▒░░▓▓▒░░░▒▓▓▓░░▓▓▒░░░▒▒▒░░▒▓▓░░░▒▓▓░░▓▓▓░░░░▒▒░░▓▓▓░░░░▓▓▓░░
+░█████████████▓░░░░░░░░░▓█░░░░░▒▓▓▓▓▓▓▒░░░▒▓▓▓▓▓▓▒░░░▓▓▒░░▓▓▒░░░▓▓▓▓▓▒▓▓▓░░░▒▓▓▓▓▓▒░░░▒▓▓░░░▒▓▓░░░▒▓▓▓▓▓▓░░░░▒▓▓▓▓▓▒▓▓░░
+░▓████████████▒░░░░░░░▒▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░▒▒▓███████▓░░░░░▒▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░▒▓████▒░▒▒▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░▒▓▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+*/
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+
+pragma solidity ^0.8.16;
 
 abstract contract Context {
-    function _msgSender() internal virtual view returns (address payable) {
+    function _msgSender() internal view virtual returns (address payable) {
         return payable(msg.sender);
     }
-    function _msgData() internal virtual view returns (bytes memory) {
+
+    function _msgData() internal view virtual returns (bytes memory) {
         this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
         return msg.data;
     }
@@ -17,20 +36,23 @@ contract Ownable is Context {
         address indexed previousOwner,
         address indexed newOwner
     );
+
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
-    constructor()  {
+    constructor() {
         address msgSender = _msgSender();
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
     }
+
     /**
      * @dev Returns the address of the current owner.
      */
     function owner() public view returns (address) {
         return _owner;
     }
+
     /**
      * @dev Throws if called by any account other than the owner.
      */
@@ -38,6 +60,7 @@ contract Ownable is Context {
         require(_owner == _msgSender(), "Ownable: caller is not the owner");
         _;
     }
+
     /**
      * @dev Leaves the contract without owner. It will not be possible to call
      * `onlyOwner` functions anymore. Can only be called by the current owner.
@@ -49,6 +72,7 @@ contract Ownable is Context {
         emit OwnershipTransferred(_owner, address(0));
         _owner = address(0);
     }
+
     /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
@@ -63,24 +87,29 @@ contract Ownable is Context {
     }
 }
 
-
 // import ierc20 & safemath & non-standard
 interface IERC20 {
     function totalSupply() external view returns (uint256);
+
     function balanceOf(address account) external view returns (uint256);
+
     function allowance(address owner, address spender)
         external
         view
         returns (uint256);
+
     function transfer(address recipient, uint256 amount)
         external
         returns (bool);
+
     function approve(address spender, uint256 amount) external returns (bool);
+
     function transferFrom(
         address sender,
         address recipient,
         uint256 amount
     ) external returns (bool);
+
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(
         address indexed owner,
@@ -91,13 +120,16 @@ interface IERC20 {
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256 balance);
+
     ///
     /// !!!!!!!!!!!!!!
     /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
     /// !!!!!!!!!!!!!!
     ///
     function transfer(address dst, uint256 amount) external;
+
     ///
     /// !!!!!!!!!!!!!!
     /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
@@ -108,13 +140,16 @@ interface INonStandardERC20 {
         address dst,
         uint256 amount
     ) external;
+
     function approve(address spender, uint256 amount)
         external
         returns (bool success);
+
     function allowance(address owner, address spender)
         external
         view
         returns (uint256 remaining);
+
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(
         address indexed owner,
@@ -128,11 +163,13 @@ library SafeMath {
         assert(b <= a);
         return a - b;
     }
+
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
         uint256 c = a + b;
         assert(c >= a);
         return c;
     }
+
     function mul(uint256 a, uint256 b) internal pure returns (uint256) {
         // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
         // benefit is lost if 'b' is also tested.
@@ -144,9 +181,11 @@ library SafeMath {
         require(c / a == b, "SafeMath: multiplication overflow");
         return c;
     }
+
     function div(uint256 a, uint256 b) internal pure returns (uint256) {
         return div(a, b, "SafeMath: division by zero");
     }
+
     function div(
         uint256 a,
         uint256 b,
@@ -160,28 +199,28 @@ library SafeMath {
     }
 }
 
-contract ERC20Sale  is Ownable {
+contract Sale1 is Ownable {
     using SafeMath for uint256;
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
     //rate of token per usdt
-    uint256 public rate; 
+    uint256 public rate;
 
-    // max allowed purchase of usdt per user 
-    uint256 public allowedUserBalance; 
+    // max allowed purchase of usdt per user
+    uint256 public allowedUserBalance;
 
     // check presale is over or not
     bool public presaleOver;
 
     // usdt token address
     IERC20 public usdt;
-    
+
     // check claimable amount of given user
     mapping(address => uint256) public claimable;
 
     // hardcap to raise in usdt
-    uint256 public hardcap; 
-    
+    uint256 public hardcap;
+
     // participated user addresses
     address[] public participatedUsers;
 
@@ -192,7 +231,12 @@ contract ERC20Sale  is Ownable {
      * @param _hardcap: amount to raise
      * @param _allowedUserBalance: max allowed purchase of usdt per user
      */
-    constructor(uint256 _rate, address _usdt, uint256 _hardcap, uint256 _allowedUserBalance)  {
+    constructor(
+        uint256 _rate,
+        address _usdt,
+        uint256 _hardcap,
+        uint256 _allowedUserBalance
+    ) {
         rate = _rate;
         usdt = IERC20(_usdt);
         presaleOver = true;
@@ -209,7 +253,7 @@ contract ERC20Sale  is Ownable {
      * @notice Change Hardcap
      * @param _hardcap: amount in usdt
      */
-    function changeHardCap(uint256 _hardcap) onlyOwner public {
+    function changeHardCap(uint256 _hardcap) public onlyOwner {
         hardcap = _hardcap;
     }
 
@@ -217,7 +261,7 @@ contract ERC20Sale  is Ownable {
      * @notice Change Rate
      * @param _rate: token rate per usdt
      */
-    function changeRate(uint256 _rate) onlyOwner public {
+    function changeRate(uint256 _rate) public onlyOwner {
         rate = _rate;
     }
 
@@ -225,7 +269,10 @@ contract ERC20Sale  is Ownable {
      * @notice Change Allowed user balance
      * @param _allowedUserBalance: amount allowed per user to purchase tokens in usdt
      */
-    function changeAllowedUserBalance(uint256 _allowedUserBalance) onlyOwner public {
+    function changeAllowedUserBalance(uint256 _allowedUserBalance)
+        public
+        onlyOwner
+    {
         allowedUserBalance = _allowedUserBalance;
     }
 
@@ -233,7 +280,7 @@ contract ERC20Sale  is Ownable {
      * @notice get total number of participated user
      * @return no of participated user
      */
-    function getTotalParticipatedUser() public view returns(uint256){
+    function getTotalParticipatedUser() public view returns (uint256) {
         return participatedUsers.length;
     }
 
@@ -259,12 +306,21 @@ contract ERC20Sale  is Ownable {
      */
     function buyTokenWithUSDT(uint256 _amount) external {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
-        require(presaleOver == false, "Private Sale Round 1 is over you cannot buy now");
+        require(
+            presaleOver == false,
+            "Private Sale Round 1 is over you cannot buy now"
+        );
         uint256 tokensPurchased = _amount.mul(rate);
         uint256 userUpdatedBalance = claimable[msg.sender].add(tokensPurchased);
-        require( _amount.add(usdt.balanceOf(address(this))) <= hardcap, "Hardcap for the tokens reached");
+        require(
+            _amount.add(usdt.balanceOf(address(this))) <= hardcap,
+            "Hardcap for the tokens reached"
+        );
         // for USDT
-        require(userUpdatedBalance.div(rate) <= allowedUserBalance, "Exceeded allowed user balance");
+        require(
+            userUpdatedBalance.div(rate) <= allowedUserBalance,
+            "Exceeded allowed user balance"
+        );
         doTransferIn(address(usdt), msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
@@ -276,7 +332,11 @@ contract ERC20Sale  is Ownable {
      * @return userAddress: user address list
      * @return amount : user wise claimable amount list
      */
-    function getUsersList(uint startIndex, uint endIndex) external view returns(address[] memory userAddress, uint[] memory amount){
+    function getUsersList(uint startIndex, uint endIndex)
+        external
+        view
+        returns (address[] memory userAddress, uint[] memory amount)
+    {
         uint length = endIndex.sub(startIndex);
         address[] memory _userAddress = new address[](length);
         uint[] memory _amount = new uint[](length);
@@ -295,7 +355,7 @@ contract ERC20Sale  is Ownable {
      * @notice do transfer in - tranfer token to contract
      * @param tokenAddress: token address to transfer in contract
      * @param from : user address from where to transfer token to contract
-     * @param amount : amount to trasnfer 
+     * @param amount : amount to trasnfer
      */
     function doTransferIn(
         address tokenAddress,
@@ -303,28 +363,32 @@ contract ERC20Sale  is Ownable {
         uint256 amount
     ) internal returns (uint256) {
         INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        uint256 balanceBefore = INonStandardERC20(tokenAddress).balanceOf(address(this));
+        uint256 balanceBefore = INonStandardERC20(tokenAddress).balanceOf(
+            address(this)
+        );
         _token.transferFrom(from, address(this), amount);
         bool success;
         assembly {
             switch returndatasize()
-                case 0 {
-                    // This is a non-standard ERC-20
-                    success := not(0) // set success to true
-                }
-                case 32 {
-                    // This is a compliant ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0) // Set success = returndata of external call
-                }
-                default {
-                    // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a compliant ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set success = returndata of external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
         }
         require(success, "TOKEN_TRANSFER_IN_FAILED");
         // Calculate the amount that was actually transferred
-        uint256 balanceAfter = INonStandardERC20(tokenAddress).balanceOf(address(this));
+        uint256 balanceAfter = INonStandardERC20(tokenAddress).balanceOf(
+            address(this)
+        );
         require(balanceAfter >= balanceBefore, "TOKEN_TRANSFER_IN_OVERFLOW");
         return balanceAfter.sub(balanceBefore); // underflow already checked above, just subtract
     }
@@ -333,7 +397,7 @@ contract ERC20Sale  is Ownable {
      * @notice do transfer out - tranfer token from contract
      * @param tokenAddress: token address to transfer from contract
      * @param to : user address to where transfer token from contract
-     * @param amount : amount to trasnfer 
+     * @param amount : amount to trasnfer
      */
     function doTransferOut(
         address tokenAddress,
@@ -345,19 +409,19 @@ contract ERC20Sale  is Ownable {
         bool success;
         assembly {
             switch returndatasize()
-                case 0 {
-                    // This is a non-standard ERC-20
-                    success := not(0) // set success to true
-                }
-                case 32 {
-                    // This is a complaint ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0) // Set success = returndata of external call
-                }
-                default {
-                    // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a complaint ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set success = returndata of external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
         }
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
     }
@@ -375,7 +439,10 @@ contract ERC20Sale  is Ownable {
      * @param _tokenAddress: token address to transfer
      * @param _value: token value to transfer from contract to owner
      */
-    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value) external onlyOwner {
+    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value)
+        external
+        onlyOwner
+    {
         doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }
 }

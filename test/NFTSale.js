@@ -13,6 +13,7 @@ describe("NFT Sale", () => {
     var token2;
     var token3;
     var tokenTrnsferTxn;
+    const zeroAdd = "0x0000000000000000000000000000000000000000";
 
     before("Deployment and token distribution", async () => {
         [acc1, acc2, acc3, acc4, acc5] = await ethers.getSigners();
@@ -25,11 +26,11 @@ describe("NFT Sale", () => {
         const token1Contract = await ethers.getContractFactory("BaseERC20");
         token1 = await token1Contract.deploy("Test 1", "TT1");
         await token1.deployed();
-        const token2Contract = await ethers.getContractFactory("Token2");
-        token2 = await token2Contract.deploy();
+        const token2Contract = await ethers.getContractFactory("BaseERC20");
+        token2 = await token2Contract.deploy("Test 2", "TT2");
         await token2.deployed()
-        const token3Contract = await ethers.getContractFactory("Token3");
-        token3 = await token3Contract.deploy();
+        const token3Contract = await ethers.getContractFactory("BaseERC20");
+        token3 = await token3Contract.deploy("Test 1", "TT1");
         await token3.deployed();
         tokenTrnsferTxn = await token1.connect(acc1).transfer(acc2.address, ethers.BigNumber.from(10).pow(18).mul(1000))
         await tokenTrnsferTxn.wait();
@@ -45,11 +46,11 @@ describe("NFT Sale", () => {
             await AddNftTxn.wait();
         })
         it("Check that nft is listed or not for sale", async () => {            
-            const deatils = await nftsale.getSaleDetails(nft.address);
-            expect(deatils._active).to.equal(true);
+            const details = await nftsale.getSaleDetails(nft.address);
+            expect(details._active).to.equal(true);
         })
         it("Error:Test that contract should throw error for listing again token for sale",async()=>{
-            await expect(nftsale.connect(acc1).addSale(nft.address, [token1.address, token2.address, token3.address,"0x0000000000000000000000000000000000000000"], [ethers.BigNumber.from(10).pow(17).mul(1), ethers.BigNumber.from(10).pow(18).mul(1), ethers.BigNumber.from(10).pow(18).mul(10)], ethers.BigNumber.from(10).pow(18).mul(1))).to.be.revertedWith("Collection previously listed");
+            await expect(nftsale.connect(acc1).addSale(nft.address, [token1.address, token2.address, token3.address, zeroAdd], [ethers.BigNumber.from(10).pow(17).mul(1), ethers.BigNumber.from(10).pow(18).mul(1), ethers.BigNumber.from(10).pow(18).mul(10)], ethers.BigNumber.from(10).pow(18).mul(1))).to.be.revertedWith("Collection previously listed");
          })
     });
 
@@ -57,6 +58,13 @@ describe("NFT Sale", () => {
         before("start sale funcs", async () => {
             const startSaleTxn = await nftsale.connect(acc1).setSaleActive(nft.address, true)
             await startSaleTxn.wait();
+        })
+        it("Test that sale is start", async () => {
+            const details = await nftsale.getSaleDetails(nft.address);
+            expect(details._active).to.equal(true);
+        })
+        it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+            await expect(nftsale.connect(acc3).setSaleActive(nft.address, true)).to.be.revertedWith("!NFT Contract ADMIN")
         })
     }); 
 
@@ -68,6 +76,9 @@ describe("NFT Sale", () => {
         it("Check that whitelisting is enabled", async () => {
             const deatils = await nftsale.getSaleDetails(nft.address);
             expect(deatils._whitelistingActive).to.equal(true);
+        })
+        it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+            await expect(nftsale.connect(acc3).setWhitelistingActive(nft.address, true)).to.be.revertedWith("!NFT Contract ADMIN")
         })
     });
 
@@ -83,7 +94,7 @@ describe("NFT Sale", () => {
             await givingMinterRoleTxn.wait();
         })
         it("Error:Test that before whitelisting causing error for purchase nft",async()=>{
-            await expect(nftsale.connect(acc2).purchaseNFT(nft.address,"0x0000000000000000000000000000000000000000",{value:`${ethers.BigNumber.from(10).pow(18).mul(1)}`})).to.be.revertedWith("!WHITELISTED");
+            await expect(nftsale.connect(acc2).purchaseNFT(nft.address, zeroAdd, {value:`${ethers.BigNumber.from(10).pow(18).mul(1)}`})).to.be.revertedWith("!WHITELISTED");
         })
     });
 
@@ -96,6 +107,9 @@ describe("NFT Sale", () => {
             expect(await nftsale.connect(acc1).checkUserWhitelisted(nft.address, acc2.address)).to.equal(true);
             expect(await nftsale.connect(acc1).checkUserWhitelisted(nft.address, acc3.address)).to.equal(true);
             expect(await nftsale.connect(acc1).checkUserWhitelisted(nft.address, acc4.address)).to.equal(true);
+        })
+        it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+            await expect(nftsale.connect(acc3).setWhitelist(nft.address, [acc2.address, acc3.address, acc4.address, acc5.address])).to.be.revertedWith("!NFT Contract ADMIN")
         })
     });     
 
@@ -115,6 +129,9 @@ describe("NFT Sale", () => {
             await expect(details._purchaseToken[2]).to.equal(token3.address);
             await expect(details._purchasePrice[2]).to.equal(ethers.BigNumber.from(10).pow(2).mul(23));            
         })
+        it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+            await expect(nftsale.connect(acc3).setPurchaseTokenPrice(nft.address,token3.address,ethers.BigNumber.from(10).pow(2).mul(23))).to.be.revertedWith("!NFT Contract ADMIN")
+        })
     })
     
     describe("Purchase NFT with token1 ", () => {
@@ -132,19 +149,20 @@ describe("NFT Sale", () => {
         });
     });
 
-    describe("Purchase NFT with native Token ", () => {
+    describe("Purchase NFT with Token ", () => {
         before("Purchase NFT Func", async () => {
             const givingMinterRoleTxn = await nft.connect(acc1).setMinterRole(nftsale.address);
             await givingMinterRoleTxn.wait();
-            const purchaseNFTTxn = await nftsale.connect(acc2).purchaseNFT(nft.address,"0x0000000000000000000000000000000000000000",{value:`${ethers.BigNumber.from(10).pow(18).mul(1)}`});
+            const purchaseNFTTxn = await nftsale.connect(acc2).purchaseNFT(nft.address, zeroAdd,{value:`${ethers.BigNumber.from(10).pow(18).mul(1)}`});
             await purchaseNFTTxn.wait();
         })
-        it("Check balnce of user it should be 2", async () => {
+        it("Check balance of user it should be 2 and contract balance should be 1ETH", async () => {
             const balance = await nft.balanceOf(acc2.address)
             expect(balance).to.equal(ethers.BigNumber.from(2));
+            expect(await ethers.provider.getBalance(nftsale.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1));   
         });
         it("Error:Test that wrong input value cause error for purchase nft",async()=>{
-            await expect(nftsale.connect(acc2).purchaseNFT(nft.address,"0x0000000000000000000000000000000000000000",{value:`${ethers.BigNumber.from(10).pow(18).mul(10)}`})).to.be.revertedWith("Incorrect AMOUNT");
+            await expect(nftsale.connect(acc2).purchaseNFT(nft.address, zeroAdd,{value:`${ethers.BigNumber.from(10).pow(18).mul(10)}`})).to.be.revertedWith("Incorrect AMOUNT");
         })
     });
 
@@ -153,6 +171,10 @@ describe("NFT Sale", () => {
             const withdrawNativeTokenTxn = await nftsale.connect(acc1).withdrawNativeTokenPayments(nft.address,acc1.address);
             await withdrawNativeTokenTxn.wait();
         })            
+        it("check that contract balance should be 0ETH and acc1 balance should be ~1001ETH ",async () => {
+            expect(await ethers.provider.getBalance(nftsale.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(0));  
+            expect(await ethers.provider.getBalance(acc1.address)).to.be.above(ethers.BigNumber.from(10).pow(18).mul(1000));
+        })
     });
 
     describe("Withdraw specific token  ", () => {
@@ -160,10 +182,13 @@ describe("NFT Sale", () => {
             const withdrawTokenTxn = await nftsale.connect(acc1).withdrawTokenPayments(nft.address,token1.address,acc5.address);
             await withdrawTokenTxn.wait();
         }) 
-        it("Check balance is transfer to or not and it would be 10ETH",async()=>{
+        it("Check balance is transfer to or not and it would be 10ETH", async () => {
             const balance = await token1.balanceOf(acc5.address);
             expect(balance).to.equal(ethers.BigNumber.from(10).pow(18).mul(10));
-        })           
+        })   
+        it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+            await expect(nftsale.connect(acc3).withdrawTokenPayments(nft.address,token1.address,acc5.address)).to.be.revertedWith("!NFT Contract ADMIN")
+        })        
     });
 
 });
