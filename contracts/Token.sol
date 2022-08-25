@@ -1,27 +1,18 @@
 /*
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░▒▓▓▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░░░░▒▒▓▓▒░░░░░▒▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░▒▓▓▒░░░░░░░░░░░░▒▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░▓▓▒░░░░░░░░░░░░░░░░░░▒▓█▓░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒░░▓▓▒░░░░░░░░░▒▒▒░░░░░░░░░░░░░░▒▓▓▓░▒▓▓░░░░░░░░░░░░░░░░░░░░░▒▒░░
-░██▓▓▒░░░░░░░░░░░░░░▒▓▓▒▓█░░░░░▓▓▓▓▓▓▓▒░░░░░░░░░░░░░░▓▓▒░░░▒░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░▓▓▒░░░▒░░░░░░░░░░░░░░░░░░░░░░▓▓░░
-░██████▓▒░░░░░░░▒▓▓█▒░░░▓█░░░░▒▓▓░░░░▒▒░░░▒▓▓▓▓▓▓▒░░░▓▓▒░░▓▓▒░░░▒▓▓▓▓▒▓▓▓░░░▒▓▓▓▓▓▒░░▒▓▓▓▓▓░▒▓▓░░░▒▓▓▓▓▓▓░░░░▒▓▓▓▓▓▒▓▓░░
-░█████████▓▓▒▒▓███▒░░░░░▓█░░░░░▓▓▓▓▒▒░░░░▒▓▓▒░░░▓▓▓░░▓▓▒░░▓▓▒░░▓▓▒░░░▒▓▓▓░░▓▓▒░░░▒▓▓░░▒▓▓░░░▒▓▓░░▓▓▓░░░░▓▓▒░▓▓▓▒░░░▓▓▓░░
-░███████████████▓░░░░░░░▓█░░░░░░░░░▒▓▓▓░░▓▓▒░░░░▒▓▓░░▓▓▒░░▓▓▒░▒▓▓░░░░░▓▓▓░▒▓▓▓▓▓▓▓▓▓▒░▒▓▓░░░▒▓▓░░▓▓▓▓▓▓▓▓▓▒░▓▓▒░░░░░▓▓░░
-░██████████████▓░░░░░░░░▓█░░░░▒▓▓░░░▒▓▓░░▒▓▓░░░░▓▓▓░░▓▓▒░░▓▓▒░░▓▓▒░░░▒▓▓▓░░▓▓▒░░░▒▒▒░░▒▓▓░░░▒▓▓░░▓▓▓░░░░▒▒░░▓▓▓░░░░▓▓▓░░
-░█████████████▓░░░░░░░░░▓█░░░░░▒▓▓▓▓▓▓▒░░░▒▓▓▓▓▓▓▒░░░▓▓▒░░▓▓▒░░░▓▓▓▓▓▒▓▓▓░░░▒▓▓▓▓▓▒░░░▒▓▓░░░▒▓▓░░░▒▓▓▓▓▓▓░░░░▒▓▓▓▓▓▒▓▓░░
-░▓████████████▒░░░░░░░▒▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░▒▒▓███████▓░░░░░▒▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░░░░░▒▓████▒░▒▒▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░▒▓▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+███████╗ ██████╗ ██╗     ██╗██████╗ ███████╗███████╗██╗███████╗██████╗ 
+██╔════╝██╔═══██╗██║     ██║██╔══██╗██╔════╝██╔════╝██║██╔════╝██╔══██╗
+███████╗██║   ██║██║     ██║██║  ██║█████╗  █████╗  ██║█████╗  ██║  ██║
+╚════██║██║   ██║██║     ██║██║  ██║██╔══╝  ██╔══╝  ██║██╔══╝  ██║  ██║
+███████║╚██████╔╝███████╗██║██████╔╝███████╗██║     ██║███████╗██████╔╝
+╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 //SPDX-License-Identifier:MIT
 // File: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Context.sol
 
-
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 pragma solidity ^0.8.16;
+
 /**
  * @dev Provides information about the current execution context, including the
  * sender of the transaction and its data. While these are generally available
@@ -43,7 +34,6 @@ abstract contract Context {
 }
 
 // File: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol
-
 
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/IERC20.sol)
 
@@ -70,7 +60,9 @@ interface IERC20 {
      *
      * Emits a {Transfer} event.
      */
-    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount)
+        external
+        returns (bool);
 
     /**
      * @dev Returns the remaining number of tokens that `spender` will be
@@ -79,7 +71,10 @@ interface IERC20 {
      *
      * This value changes when {approve} or {transferFrom} are called.
      */
-    function allowance(address owner, address spender) external view returns (uint256);
+    function allowance(address owner, address spender)
+        external
+        view
+        returns (uint256);
 
     /**
      * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
@@ -124,16 +119,18 @@ interface IERC20 {
      * @dev Emitted when the allowance of a `spender` for an `owner` is set by
      * a call to {approve}. `value` is the new allowance.
      */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 }
 
 // File: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol
 
-
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)
 
 pragma solidity ^0.8.0;
-
 
 /**
  * @dev Interface for the optional metadata functions from the ERC20 standard.
@@ -159,13 +156,9 @@ interface IERC20Metadata is IERC20 {
 
 // File: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol
 
-
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/ERC20.sol)
 
 pragma solidity ^0.8.0;
-
-
-
 
 /**
  * @dev Implementation of the {IERC20} interface.
@@ -258,7 +251,13 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     /**
      * @dev See {IERC20-balanceOf}.
      */
-    function balanceOf(address account) public view virtual override returns (uint256) {
+    function balanceOf(address account)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         return _balances[account];
     }
 
@@ -270,7 +269,12 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount)
+        public
+        virtual
+        override
+        returns (bool)
+    {
         _transfer(_msgSender(), recipient, amount);
         return true;
     }
@@ -278,7 +282,13 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     /**
      * @dev See {IERC20-allowance}.
      */
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+    function allowance(address owner, address spender)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         return _allowances[owner][spender];
     }
 
@@ -289,7 +299,12 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+    function approve(address spender, uint256 amount)
+        public
+        virtual
+        override
+        returns (bool)
+    {
         _approve(_msgSender(), spender, amount);
         return true;
     }
@@ -313,7 +328,10 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         uint256 amount
     ) public virtual override returns (bool) {
         uint256 currentAllowance = _allowances[sender][_msgSender()];
-        require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
+        require(
+            currentAllowance >= amount,
+            "ERC20: transfer amount exceeds allowance"
+        );
         unchecked {
             _approve(sender, _msgSender(), currentAllowance - amount);
         }
@@ -335,8 +353,16 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      *
      * - `spender` cannot be the zero address.
      */
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender] + addedValue);
+    function increaseAllowance(address spender, uint256 addedValue)
+        public
+        virtual
+        returns (bool)
+    {
+        _approve(
+            _msgSender(),
+            spender,
+            _allowances[_msgSender()][spender] + addedValue
+        );
         return true;
     }
 
@@ -354,9 +380,16 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `spender` must have allowance for the caller of at least
      * `subtractedValue`.
      */
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+    function decreaseAllowance(address spender, uint256 subtractedValue)
+        public
+        virtual
+        returns (bool)
+    {
         uint256 currentAllowance = _allowances[_msgSender()][spender];
-        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        require(
+            currentAllowance >= subtractedValue,
+            "ERC20: decreased allowance below zero"
+        );
         unchecked {
             _approve(_msgSender(), spender, currentAllowance - subtractedValue);
         }
@@ -389,7 +422,10 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         _beforeTokenTransfer(sender, recipient, amount);
 
         uint256 senderBalance = _balances[sender];
-        require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        require(
+            senderBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
         unchecked {
             _balances[sender] = senderBalance - amount;
         }
@@ -519,9 +555,10 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
 pragma solidity ^0.8.0;
 
-
 contract BaseERC20 is ERC20 {
-    constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
+    constructor(string memory _name, string memory _symbol)
+        ERC20(_name, _symbol)
+    {
         _mint(msg.sender, 5000000000000000000000000000);
     }
 }
