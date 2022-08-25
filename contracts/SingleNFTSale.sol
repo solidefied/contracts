@@ -16,7 +16,8 @@
 ░░░░░░░░░░▒▓▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 */
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+
+pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -48,7 +49,7 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
     bool public saleActive;
     bool public freeMint;
 
-    uint256 totalPurchaseTokens;
+    uint256 public totalPurchaseTokens;
     uint256 public priceInNativeTokens;
 
     address public nftContract;
@@ -81,8 +82,9 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         address _treasury
     ) {
         nftContract = _nftContract;
-        for (uint8 i; i < _erc20Tokens.length; i++) {
-            require(purchaseTokens[i] == address(0), "Invalid TOKEN");
+        for (uint i; i < _erc20Tokens.length; i++) {
+            require(_erc20Tokens[i] != address(0), "Invalid TOKEN");
+            require(_erc20Prices[i] != 0, "Invalid PRICE");
             purchaseTokens[i] = _erc20Tokens[i];
             priceInERC20Tokens[_erc20Tokens[i]] = _erc20Prices[i];
         }
@@ -103,11 +105,18 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
 
     // Set NFT price in ERC20 tokens
     function setPurchaseTokenPrice(address _erc20Token, uint256 _erc20Price)
-        external
+        public
         onlyOwner
     {
+        require(_erc20Token != address(0), "Invalid TOKEN");
+        require(_erc20Price != 0, "Invalid PRICE");
+        // if(priceInERC20Tokens[_erc20Token] != 0){
+        //     totalPurchaseTokens += 1;
+        //     purchaseTokens[totalPurchaseTokens] = _erc20Token;
+        // }
+        // priceInERC20Tokens[_erc20Token] = _erc20Price;
         bool existingToken;
-        for (uint8 i; i < totalPurchaseTokens; i++) {
+        for (uint i; i < totalPurchaseTokens; i++) {
             if (purchaseTokens[i] == _erc20Token) {
                 priceInERC20Tokens[_erc20Token] = _erc20Price;
                 existingToken = true;
@@ -139,14 +148,16 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         view
         returns (
             address[] memory _purchaseToken,
-            uint256[] memory _priceInERC20Tokens
+            uint256[] memory _priceInERC20Tokens,
+            uint _total
         )
     {
         _purchaseToken = new address[](totalPurchaseTokens);
         _priceInERC20Tokens = new uint256[](totalPurchaseTokens);
-        for (uint8 i; i < totalPurchaseTokens; i++) {
+        for (uint i; i < totalPurchaseTokens; i++) {
             _purchaseToken[i] = purchaseTokens[i];
             _priceInERC20Tokens[i] = priceInERC20Tokens[purchaseTokens[i]];
+            _total++;
         }
     }
 
@@ -178,8 +189,10 @@ contract SingleNFTSale is ReentrancyGuard, Ownable {
         purchaseEnabled
         nonReentrant
     {
-        if (!freeMint) {
-            require(priceInNativeTokens == msg.value, "Incorrect AMOUNT");
+        if (freeMint) {
+            require(msg.value == 0, "Incorrect AMOUNT");
+        } else {
+            require(msg.value == priceInNativeTokens, "Incorrect AMOUNT");
         }
         IERC721(nftContract).mintToken(msg.sender);
     }
