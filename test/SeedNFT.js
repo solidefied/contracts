@@ -21,13 +21,13 @@ describe("Seed NFT", () => {
     await setMinterTxn.wait();
     minterRoleBytes = await seedNft.MINTER_ROLE();
     const tokenContract = await ethers.getContractFactory("BaseERC20");
-    token = await tokenContract.deploy("Test Token","TT");
+    token = await tokenContract.deploy("Test Token", "TT");
     await token.deployed();
     const tokenTrnsferTxn = await token.connect(acc1).transfer(seedNft.address, ethers.BigNumber.from(10).pow(18).mul(1000))
-    await tokenTrnsferTxn.wait(); 
+    await tokenTrnsferTxn.wait();
   });
 
-  it("Initialiation check", async () => {
+  it("Initial value checks", async () => {
     console.log("NFT Address: ", seedNft.address);
     expect(await seedNft.connect(acc1).name()).to.equal("Solidefied Angel");
     expect(await seedNft.connect(acc1).symbol()).to.equal("ANGEL");
@@ -59,7 +59,7 @@ describe("Seed NFT", () => {
       await expect(seedNft.connect(acc1).mintToken(zeroAdd)).to.be.revertedWith("ERC721: mint to the zero address");
     });
 
-    it("Error:Contract should give error for unauthorized txn by acc3",async () => {
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(seedNft.connect(acc3).mintToken(acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${minterRoleBytes}`);
     });
   });
@@ -72,9 +72,9 @@ describe("Seed NFT", () => {
     it("Check base uri is setted or not", async () => {
       expect(await seedNft.baseURI()).to.equal("xyzx.com");
     });
-    it("Error:Contract should give error for unauthorized txn by acc3",async () => {
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(seedNft.connect(acc3).setBaseURI("xyzx.com")).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
-    });  
+    });
   });
 
   describe("Change Total supply", () => {
@@ -85,7 +85,7 @@ describe("Seed NFT", () => {
     it("Check Total supply is 260 or not", async () => {
       expect(await seedNft.TOKEN_SUPPLY()).to.equal(260);
     });
-    it("Error:Contract should give error for unauthorized txn by acc3",async () => {
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(seedNft.connect(acc3).setTokenSupply(260)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   });
@@ -98,52 +98,52 @@ describe("Seed NFT", () => {
     it("Check that acc2 has not a minter role", async () => {
       expect(await seedNft.hasRole(minterRoleBytes, acc2.address)).to.equal(false);
     });
-    it("Error:Contract should give error for unauthorized txn by acc3",async () => {
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(seedNft.connect(acc3).revokeRole(minterRoleBytes, acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   });
 
-  describe("Grant Minter role to acc2",() => {
+  describe("Grant Minter role to acc2", () => {
     before("grant role func", async () => {
-      const setMinterTxn = await seedNft.connect(acc1).grantRole(minterRoleBytes,acc2.address); //assigned minter role to acc1
+      const setMinterTxn = await seedNft.connect(acc1).grantRole(minterRoleBytes, acc2.address); //assigned minter role to acc1
       await setMinterTxn.wait();
     })
     it("Check that acc2 has a minter role", async () => {
       expect(await seedNft.hasRole(minterRoleBytes, acc2.address)).to.equal(true);
     });
-    it("Error:Contract should give error for unauthorized txn by acc3",async () => {
-      await expect(seedNft.connect(acc3).grantRole(minterRoleBytes,acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+      await expect(seedNft.connect(acc3).grantRole(minterRoleBytes, acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   })
 
   describe("Renounce Minter Role of acc2", () => {
-    before("revoke role func", async () => {      
+    before("revoke role func", async () => {
       const RenounceMinterRoleTxn = await seedNft.connect(acc2).renounceRole(minterRoleBytes, acc2.address);
       await RenounceMinterRoleTxn.wait();
     });
     it("Check that acc2 has not a minter role", async () => {
       expect(await seedNft.hasRole(minterRoleBytes, acc2.address)).to.equal(false);
     });
-    it("Error:Contract should give error for unauthorized txn by acc3",async () => {
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(seedNft.connect(acc3).renounceRole(minterRoleBytes, acc2.address)).to.be.revertedWith(`AccessControl: can only renounce roles for self`);
     });
   });
 
-  describe("Withdraw Accidentally added token",()=>{
-    before("Withdraw func",async () => {
+  describe("Withdraw Accidentally added token", () => {
+    before("Withdraw func", async () => {
       const WithDrawTokenTxn = await seedNft.connect(acc1).withdrawAccidentalToken(token.address);
       await WithDrawTokenTxn.wait();
     })
-    it("Test that accidentally token should be transfered to treasuryAddress(acc4)",async () => {
+    it("Test that accidentally token should be transfered to treasuryAddress(acc4)", async () => {
       expect(await token.balanceOf(acc4.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
     });
-    it("Error:Contract should give error for token balance is zero",async () => {
+    it("Error:Contract should give error for token balance is zero", async () => {
       await expect(seedNft.connect(acc1).withdrawAccidentalToken(token.address)).to.be.revertedWith("Low Balance");
     });
-    it("Error:Contract should give error for unauthorized txn by acc3",async () => {
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(seedNft.connect(acc3).withdrawAccidentalToken(token.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   })
 
-  
+
 });

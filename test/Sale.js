@@ -22,17 +22,12 @@ describe("Sale", function () {
     await startSale.wait();
   });
 
-  it("Test that initialized value should be as equal to as it was submited", async () => {
+  it("Initial value checks", async () => {
     expect(await token.decimals()).to.equal(18);
-
     expect(await token.name()).to.equal("TestToken");
-
     expect(await token.symbol()).to.equal("TT");
-
     expect(await sale.hardcap()).to.equal(ethers.BigNumber.from(10).pow(18).mul(10000));
-
     expect(await sale.allowedUserBalance()).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
-
     expect(await sale.rate()).to.equal(4);
   });
 
