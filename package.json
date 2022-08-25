@@ -5,5 +5,13 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^1.0.2"
+  },
+  "scripts": {
+    "test": "hardhat test",
+    "singlesale": "hardhat test test/SingleSale.js",
+    "nftsale": "hardhat test test/NFTSale.js",
+    "governancenft": "hardhat test test/GovernanceNFT.js",
+    "seednft": "hardhat test test/SeedNFT.js",
+    "sale": "hardhat test test/Sale.js"
   }
 }
