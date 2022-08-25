@@ -59,27 +59,30 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
 
     address public nftContract;
     address public TREASURY;
-    // address public USDT = 0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8; // test token 6
-    address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7; //6
-    address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; //6
-    // address public DAI = 0x9d83e140330758a8fFD07F8Bd73e86ebcA8a5692; // test 18
-    address public DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F; //18
+    address public USDT;
+    address public USDC;
+    address public DAI;
 
-    modifier purchaseEnabled() {
-        require(saleActive, "!SALE");
-        _;
-    }
+    // address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7; // 6 decimals
+    // address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // 6 decimals
+    // address public DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F; // 18 decimals
 
     constructor(
         address _nftContract,
         address _treasury,
         uint _priceInETH,
-        uint _priceInUSD
+        uint _priceInUSD,
+        address _usdtAddress,
+        address _usdcAddress,
+        address _daiAddress
     ) {
         nftContract = _nftContract;
         TREASURY = _treasury;
         priceInETH = _priceInETH;
         priceInUSD = _priceInUSD;
+        USDT = _usdtAddress;
+        USDC = _usdcAddress;
+        DAI = _daiAddress;
     }
 
     function setTreasury(address _treasury) external onlyOwner {
