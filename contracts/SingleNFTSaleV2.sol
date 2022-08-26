@@ -13,7 +13,7 @@ pragma solidity ^0.8.16;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-// import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
@@ -53,6 +53,7 @@ interface IERC721 {
 
 contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
     bool public saleActive;
+    bool public whitelistingActive;
 
     uint256 public priceInETH;
     uint256 public priceInUSD;
@@ -67,6 +68,8 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
     // address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // 6 decimals
     // address public DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F; // 18 decimals
 
+    mapping(address => bool) public whitelist;
+
     constructor(
         address _nftContract,
         address _treasury,
@@ -79,10 +82,18 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         nftContract = _nftContract;
         TREASURY = _treasury;
         priceInETH = _priceInETH;
-        priceInUSD = _priceInUSD;
+        priceInUSD = _priceInUSD; //e.g. $10.22 => 1022
         USDT = _usdtAddress;
         USDC = _usdcAddress;
         DAI = _daiAddress;
+    }
+
+    modifier isWhitelisted() {
+        require(
+            whitelistingActive == false || whitelist[msg.sender],
+            "!WHITELISTED"
+        );
+        _;
     }
 
     function setTreasury(address _treasury) external onlyOwner {
@@ -101,6 +112,16 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         saleActive = _active;
     }
 
+    function setWhitelistingActive(bool _active) external onlyOwner {
+        whitelistingActive = _active;
+    }
+
+    function addWhitelist(address[] calldata _whitelist) external onlyOwner {
+        for (uint256 i; i < _whitelist.length; i++) {
+            whitelist[_whitelist[i]] = true;
+        }
+    }
+
     function buyNFTWithToken(address _purchaseToken) external nonReentrant {
         require(saleActive, "!SALE");
         require(
@@ -109,12 +130,18 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
                 _purchaseToken == DAI,
             "Invalid TOKEN"
         );
+        uint amount;
+        if (_purchaseToken == USDT || _purchaseToken == USDC) {
+            amount = (priceInUSD * 10**6) / 10**2; // dividing by 10**2 for managing cents
+        } else {
+            amount = (priceInUSD * 10**18) / 10**2;
+        }
         // IERC20(_purchaseToken).transferFrom(
         //     msg.sender,
         //     address(this),
-        //     priceInUSD
+        //     amount
         // );
-        _transferTokens(_purchaseToken, msg.sender, address(this), priceInUSD);
+        _transferTokens(_purchaseToken, msg.sender, address(this), amount);
         IERC721(nftContract).mintToken(msg.sender);
     }
 
