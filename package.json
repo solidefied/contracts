@@ -9,6 +9,7 @@
   "scripts": {
     "test": "hardhat test",
     "singlesale": "hardhat test test/SingleSale.js",
+    "singlesalev2": "hardhat test test/SingleSaleV2.js",
     "nftsale": "hardhat test test/NFTSale.js",
     "governancenft": "hardhat test test/GovernanceNFT.js",
     "seednft": "hardhat test test/SeedNFT.js",

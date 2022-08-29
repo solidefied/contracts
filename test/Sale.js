@@ -16,7 +16,7 @@ describe("Sale", function () {
     const Token2 = await ethers.getContractFactory("BaseERC20");
     token2 = await Token2.deploy("TestToken2", "TT2");
     await token2.deployed();
-    const Sale = await ethers.getContractFactory("Sale1");
+    const Sale = await ethers.getContractFactory("ERC20Sale");
     sale = await Sale.deploy(4, token.address, ethers.BigNumber.from(10).pow(18).mul(10000), ethers.BigNumber.from(10).pow(18).mul(1000));
     const startSale = await sale.connect(acc1).startPresale();
     await startSale.wait();
