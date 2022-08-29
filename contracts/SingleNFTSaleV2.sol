@@ -141,18 +141,44 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         //     address(this),
         //     amount
         // );
-        _transferTokens(_purchaseToken, msg.sender, address(this), amount);
+        _transferTokensIn(_purchaseToken, msg.sender, amount);
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    function _transferTokens(
+    function _transferTokensIn(
         address tokenAddress,
         address from,
+        uint256 amount
+    ) private {
+        INonStandardERC20 _token = INonStandardERC20(tokenAddress);
+        _token.transferFrom(from, address(this), amount);
+        bool success;
+        assembly {
+            switch returndatasize()
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a compliant ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set success = returndata of external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
+        }
+        require(success, "!TRANSFER");
+    }
+
+    function _transferTokensOut(
+        address tokenAddress,
         address to,
         uint256 amount
     ) private {
         INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        _token.transferFrom(from, to, amount);
+        _token.transfer(to, amount);
         bool success;
         assembly {
             switch returndatasize()
@@ -184,7 +210,7 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         onlyOwner
         nonReentrant
     {
-        _transferTokens(_erc20Token, address(this), TREASURY, _amount);
+        _transferTokensOut(_erc20Token, TREASURY, _amount);
         // IERC20(_erc20Token).transfer(
         //     TREASURY,
         //     IERC20(_erc20Token).balanceOf(address(this))
