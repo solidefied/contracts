@@ -122,7 +122,7 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         }
     }
 
-    function buyNFTWithToken(address _purchaseToken) external nonReentrant {
+    function buyNFTWithToken(address _purchaseToken) external nonReentrant isWhitelisted {
         require(saleActive, "!SALE");
         require(
             _purchaseToken == USDT ||
@@ -134,8 +134,10 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         if (_purchaseToken == USDT || _purchaseToken == USDC) {
             amount = (priceInUSD * 10**6) / 10**2; // dividing by 10**2 for managing cents
         } else {
-            amount = (priceInUSD * 10**18) / 10**2;
+            amount = (priceInUSD * 10**18) / 10**2;  
         }
+
+        
         // IERC20(_purchaseToken).transferFrom(
         //     msg.sender,
         //     address(this),
@@ -199,7 +201,7 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         require(success, "!TRANSFER");
     }
 
-    function buyNFTWithETH() external payable nonReentrant {
+    function buyNFTWithETH() external payable nonReentrant isWhitelisted {
         require(saleActive, "!SALE");
         require(msg.value == priceInETH, "Incorrect AMOUNT");
         IERC721(nftContract).mintToken(msg.sender);
