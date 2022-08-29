@@ -10,19 +10,20 @@
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract Governor is ERC721, ERC2981, AccessControl {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
 
     using Counters for Counters.Counter;
     using Strings for uint256;
-    Counters.Counter private _tokenIdCounter;
 
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    Counters.Counter private _tokenIdCounter;
     uint public TOKEN_SUPPLY;
     address TREASURY;
     string public baseURI;
@@ -46,7 +47,13 @@ contract Governor is ERC721, ERC2981, AccessControl {
         _safeMint(to, tokenId);
     }
 
-    // to set or update default royalty fee for every token
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._beforeTokenTransfer(from, to, tokenId);
+    }
+
     function setDefaultRoyalty(address _receiver, uint96 _royaltyRate)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -54,7 +61,6 @@ contract Governor is ERC721, ERC2981, AccessControl {
         _setDefaultRoyalty(_receiver, _royaltyRate);
     }
 
-    // to set or update total token supply
     function setTokenSupply(uint256 _tokenSupply)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -62,7 +68,6 @@ contract Governor is ERC721, ERC2981, AccessControl {
         TOKEN_SUPPLY = _tokenSupply;
     }
 
-    // to set or update the baseUri.
     function setBaseURI(string memory _uri)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -77,10 +82,6 @@ contract Governor is ERC721, ERC2981, AccessControl {
         TREASURY = treasury;
     }
 
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseURI;
-    }
-
     function setMinterRole(address _minter)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -88,8 +89,7 @@ contract Governor is ERC721, ERC2981, AccessControl {
         _grantRole(MINTER_ROLE, _minter);
     }
 
-    //to withdraw native currency(if any)
-    function withdrawAccidentalETH()
+    function withdrawDonatedETH()
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
@@ -98,7 +98,7 @@ contract Governor is ERC721, ERC2981, AccessControl {
         return success;
     }
 
-    function withdrawAccidentalToken(address _erc20Token)
+    function withdrawDonatedTokens(address _erc20Token)
         public
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
@@ -110,11 +110,14 @@ contract Governor is ERC721, ERC2981, AccessControl {
         );
     }
 
+    function _baseURI() internal view virtual override returns (string memory) {
+        return baseURI;
+    }
+
     function getBalance() public view returns (uint) {
         return address(this).balance;
     }
 
-    // Every marketplace looks for this function to read the uri of a token
     function tokenURI(uint256 _tokenId)
         public
         view
@@ -130,7 +133,6 @@ contract Governor is ERC721, ERC2981, AccessControl {
                 : "";
     }
 
-    //total token minted
     function tokenMinted() public view returns (uint) {
         return _tokenIdCounter.current();
     }
@@ -138,7 +140,7 @@ contract Governor is ERC721, ERC2981, AccessControl {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, AccessControl, ERC2981)
+        override(ERC721,ERC721Enumerable, AccessControl, ERC2981)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
