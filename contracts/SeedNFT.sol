@@ -10,18 +10,18 @@
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract Angel is ERC721, AccessControl {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
+contract Angel is ERC721,ERC721Enumerable, AccessControl {
     using Counters for Counters.Counter;
     using Strings for uint256;
-    Counters.Counter private _tokenIdCounter;
 
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    Counters.Counter private _tokenIdCounter;
     uint public TOKEN_SUPPLY;
     address TREASURY;
     string public baseURI;
@@ -56,10 +56,6 @@ contract Angel is ERC721, AccessControl {
         baseURI = _uri;
     }
 
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseURI;
-    }
-
     function setMinterRole(address _minter)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -71,12 +67,14 @@ contract Angel is ERC721, AccessControl {
         address from,
         address to,
         uint256 tokenId
-    ) internal virtual override {
+    ) internal  override(ERC721, ERC721Enumerable) {
         require(from == address(0) || to == address(0), "Not Transferable");
+        super._beforeTokenTransfer(from, to, tokenId);
     }
+    
 
     //to withdraw native currency(if any)
-    function withdrawAccidentalETH()
+    function withdrawDonatedETH()
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
@@ -85,7 +83,7 @@ contract Angel is ERC721, AccessControl {
         return success;
     }
 
-    function withdrawAccidentalToken(address _tokenAddress)
+    function withdrawDonatedToken(address _tokenAddress)
         public
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
@@ -97,6 +95,10 @@ contract Angel is ERC721, AccessControl {
             TREASURY,
             IERC20(_tokenAddress).balanceOf(address(this))
         );
+    }
+    
+    function _baseURI() internal view virtual override returns (string memory) {
+        return baseURI;
     }
 
     function getBalance() public view returns (uint) {
@@ -125,7 +127,7 @@ contract Angel is ERC721, AccessControl {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, AccessControl)
+        override(ERC721,ERC721Enumerable, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
