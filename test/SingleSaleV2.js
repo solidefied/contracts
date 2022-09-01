@@ -8,6 +8,7 @@ describe("Single NFT Sale V2", () => {
     var acc4;
     var acc5;
     var acc6;
+    var acc7;
     var nft;
     var usdt;
     var usdc;
@@ -17,7 +18,7 @@ describe("Single NFT Sale V2", () => {
     const zeroAdd = "0x0000000000000000000000000000000000000000";
 
     before("Deployment and token distribution", async () => {
-        [acc1, acc2, acc3, acc4, acc5, acc6] = await ethers.getSigners();
+        [acc1, acc2, acc3, acc4, acc5, acc6, acc7] = await ethers.getSigners();
         const nftContract = await ethers.getContractFactory("Governor");
         nft = await nftContract.deploy(acc1.address, "test.com", 400); // acc1 as treasury 400 === 4% royaltyrate
         await nft.deployed();
@@ -37,7 +38,7 @@ describe("Single NFT Sale V2", () => {
         tokenTrnsferTxn = await dai.connect(acc1).transfer(acc4.address, ethers.BigNumber.from(10).pow(18).mul(1000))
         await tokenTrnsferTxn.wait();
         const SingleSaleV2 = await ethers.getContractFactory("SingleNFTSaleV2");
-        singleSaleV2 = await SingleSaleV2.deploy(nft.address, acc5.address, ethers.BigNumber.from(10).pow(18).mul(2), 1022, usdt.address, usdc.address, dai.address); //acc5 as TREASURY, here 1022 is $10.22
+        singleSaleV2 = await SingleSaleV2.deploy(nft.address, acc7.address, ethers.BigNumber.from(10).pow(18).mul(2), 1022, usdt.address, usdc.address, dai.address); //acc7 as TREASURY, here 1022 is $10.22
         await singleSaleV2.deployed();
         const givingMinterRoleTxn = await nft.connect(acc1).setMinterRole(singleSaleV2.address);
         await givingMinterRoleTxn.wait();
@@ -47,7 +48,7 @@ describe("Single NFT Sale V2", () => {
         expect(await singleSaleV2.owner()).to.equal(acc1.address);
         expect(await singleSaleV2.nftContract()).to.equal(nft.address);
         expect(await singleSaleV2.saleActive()).to.equal(false);
-        expect(await singleSaleV2.TREASURY()).to.equal(acc5.address);
+        expect(await singleSaleV2.TREASURY()).to.equal(acc7.address);
         expect(await singleSaleV2.priceInETH()).to.equal(ethers.BigNumber.from(10).pow(18).mul(2));
         expect(await singleSaleV2.priceInUSD()).to.equal(1022);
         expect(await singleSaleV2.USDT()).to.equal(usdt.address);
@@ -86,7 +87,7 @@ describe("Single NFT Sale V2", () => {
 
     describe("White list users", () => {
         before("whitelisting func", async () => {
-            const addWhitekingTxn = await singleSaleV2.connect(acc1).addWhitelist([acc1.address, acc2.address, acc3.address, acc4.address, acc5.address]);
+            const addWhitekingTxn = await singleSaleV2.connect(acc1).addWhitelist([acc1.address, acc2.address, acc3.address, acc4.address, acc5.address,acc7.address]);
             await addWhitekingTxn.wait();
         })
         it("Check that sake is enabled", async () => {
@@ -95,6 +96,7 @@ describe("Single NFT Sale V2", () => {
             expect(await singleSaleV2.whitelist(acc3.address)).to.equal(true);
             expect(await singleSaleV2.whitelist(acc4.address)).to.equal(true);
             expect(await singleSaleV2.whitelist(acc5.address)).to.equal(true);
+            expect(await singleSaleV2.whitelist(acc7.address)).to.equal(true);
         })
         it("Error:Contract should give error for unauthorized txn by acc4", async () => {
             await expect(singleSaleV2.connect(acc4).addWhitelist([acc1.address, acc2.address, acc3.address, acc4.address, acc5.address])).to.be.revertedWith("Ownable: caller is not the owner")
@@ -164,7 +166,7 @@ describe("Single NFT Sale V2", () => {
         })
         it("check that contract balance should be 0ETH and acc1 balance should be 10002ETH ", async () => {
             expect(await ethers.provider.getBalance(singleSaleV2.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(0));
-            expect(await ethers.provider.getBalance(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10002));
+            expect(await ethers.provider.getBalance(acc7.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10002));
         })
     });
 
@@ -174,7 +176,7 @@ describe("Single NFT Sale V2", () => {
             await withdrawTokenTxn.wait();
         })
         it("Check balance is transfer to or not and it would be 10token and 100token", async () => {
-            expect(await usdt.balanceOf(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(4).mul(1022));
+            expect(await usdt.balanceOf(acc7.address)).to.equal(ethers.BigNumber.from(10).pow(4).mul(1022));
         })
         it("Error:Contract should give error for unauthorized txn by acc4", async () => {
             await expect(singleSaleV2.connect(acc4).withdrawTokens(usdt.address, ethers.BigNumber.from(10).pow(4).mul(1022))).to.be.revertedWith("Ownable: caller is not the owner")

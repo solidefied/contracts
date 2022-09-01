@@ -142,17 +142,17 @@ describe("Governance NFT", () => {
 
   describe("Withdraw Accidentally added token", () => {
     before("Withdraw func", async () => {
-      const WithDrawTokenTxn = await governance.connect(acc1).withdrawAccidentalToken(token.address);
+      const WithDrawTokenTxn = await governance.connect(acc1).withdrawDonatedTokens(token.address);
       await WithDrawTokenTxn.wait();
     })
     it("Test that accidentally token should be transfered to treasuryAddress(acc4)", async () => {
       expect(await token.balanceOf(acc4.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
     });
     it("Error:Contract should give error for token balance is zero", async () => {
-      await expect(governance.connect(acc1).withdrawAccidentalToken(token.address)).to.be.revertedWith("!BALANCE");
+      await expect(governance.connect(acc1).withdrawDonatedTokens(token.address)).to.be.revertedWith("!BALANCE");
     });
     it("Error:Contract should give error for unauthorized txn by acc3", async () => {
-      await expect(governance.connect(acc3).withdrawAccidentalToken(token.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
+      await expect(governance.connect(acc3).withdrawDonatedTokens(token.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   })
 
@@ -162,14 +162,14 @@ describe("Governance NFT", () => {
         to: governance.address,
         value: ethers.utils.parseEther("5")
       });    //send ETH to other acc or contract     
-      const WithDrawETHTxn = await governance.connect(acc1).withdrawAccidentalETH();
+      const WithDrawETHTxn = await governance.connect(acc1).withdrawDonatedETH();
       await WithDrawETHTxn.wait();
     })
     it("Check that withdrawed amount is transferd to acc4", async () => {
       expect(await ethers.provider.getBalance(acc4.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10005))
     })
     it("Error:Contract should give error for unauthorized txn by acc3", async () => {
-      await expect(governance.connect(acc3).withdrawAccidentalETH()).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
+      await expect(governance.connect(acc3).withdrawDonatedETH()).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   })
 

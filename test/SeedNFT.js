@@ -6,6 +6,7 @@ describe("Seed NFT", () => {
   var acc2;
   var acc3;
   var acc4;
+  var acc5;
   var minterRoleBytes;
   var seedNft;
   var token;
@@ -13,9 +14,9 @@ describe("Seed NFT", () => {
   const zeroAdd = "0x0000000000000000000000000000000000000000";
 
   before("Deployement", async () => {
-    [acc1, acc2, acc3, acc4] = await ethers.getSigners();
+    [acc1, acc2, acc3, acc4, acc5] = await ethers.getSigners();
     const seedNftContract = await ethers.getContractFactory("Angel");
-    seedNft = await seedNftContract.deploy(acc4.address, "xyz.com"); //acc4 as a trasuryAddress
+    seedNft = await seedNftContract.deploy(acc5.address, "xyz.com"); //acc4 as a trasuryAddress
     await seedNft.deployed();
     const setMinterTxn = await seedNft.setMinterRole(acc1.address); //assigned minter role to acc1
     await setMinterTxn.wait();
@@ -131,19 +132,34 @@ describe("Seed NFT", () => {
 
   describe("Withdraw Accidentally added token", () => {
     before("Withdraw func", async () => {
-      const WithDrawTokenTxn = await seedNft.connect(acc1).withdrawAccidentalToken(token.address);
+      const WithDrawTokenTxn = await seedNft.connect(acc1).withdrawDonatedToken(token.address);
       await WithDrawTokenTxn.wait();
     })
-    it("Test that accidentally token should be transfered to treasuryAddress(acc4)", async () => {
-      expect(await token.balanceOf(acc4.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
+    it("Test that accidentally token should be transfered to treasuryAddress(acc5)", async () => {
+      expect(await token.balanceOf(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
     });
     it("Error:Contract should give error for token balance is zero", async () => {
-      await expect(seedNft.connect(acc1).withdrawAccidentalToken(token.address)).to.be.revertedWith("Low Balance");
+      await expect(seedNft.connect(acc1).withdrawDonatedToken(token.address)).to.be.revertedWith("Low Balance");
     });
     it("Error:Contract should give error for unauthorized txn by acc3", async () => {
-      await expect(seedNft.connect(acc3).withdrawAccidentalToken(token.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
+      await expect(seedNft.connect(acc3).withdrawDonatedToken(token.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   })
 
-
+  describe("Withdraw Accidentally added ETH", () => {
+    before("Withdraw func", async () => {
+      await acc3.sendTransaction({
+        to: seedNft.address,
+        value: ethers.utils.parseEther("5")
+      });    //send ETH to other acc or contract     
+      const WithDrawETHTxn = await seedNft.connect(acc1).withdrawDonatedETH();
+      await WithDrawETHTxn.wait();      
+    })
+    it("Check that withdrawed amount is transferd to acc5", async () => {
+      expect(await ethers.provider.getBalance(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10005))
+    })
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+      await expect(seedNft.connect(acc3).withdrawDonatedETH()).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
+    });
+  })
 });
