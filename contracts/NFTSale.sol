@@ -12,8 +12,9 @@ pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
@@ -51,9 +52,8 @@ interface IERC721 {
     function mintToken(address _receiver) external;
 }
 
-contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
-    bool public saleActive;
-    bool public whitelistingActive;
+contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
+    bool public iswhitelistingEnabled;
 
     uint256 public priceInETH;
     uint256 public priceInUSD;
@@ -64,11 +64,13 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
     address public USDC;
     address public DAI;
 
+    bytes32 public root;
+
     // address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7; // 6 decimals
     // address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // 6 decimals
     // address public DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F; // 18 decimals
 
-    mapping(address => bool) public whitelist;
+  //  mapping(address => bool) public whitelist;
 
     constructor(
         address _nftContract,
@@ -77,7 +79,8 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         uint _priceInUSD,
         address _usdtAddress,
         address _usdcAddress,
-        address _daiAddress
+        address _daiAddress,
+        bytes32 _root
     ) {
         nftContract = _nftContract;
         TREASURY = _treasury;
@@ -86,18 +89,27 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         USDT = _usdtAddress;
         USDC = _usdcAddress;
         DAI = _daiAddress;
+        root = _root;
     }
 
-    modifier isWhitelisted() {
-        require(
-            whitelistingActive == false || whitelist[msg.sender],
-            "!WHITELISTED"
-        );
+    modifier isWhitelisted(bytes32[] memory proof) {
+        if(iswhitelistingEnabled){
+            require(isValid(proof, keccak256(abi.encodePacked(msg.sender))), "Not a part of Allowlist");
+        }
         _;
     }
 
+    function isValid(bytes32[] memory proof, bytes32 leaf) public view returns (bool) {
+        return MerkleProof.verify(proof, root, leaf);
+    }
+
+
     function setTreasury(address _treasury) external onlyOwner {
         TREASURY = _treasury;
+    }
+//Only Testing
+    function setMerkleRoot(bytes32 _root) external onlyOwner {
+         root =  _root;
     }
 
     function setPriceETH(uint _priceInETH) public onlyOwner {
@@ -108,22 +120,21 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         priceInUSD = _priceInUSD;
     }
 
-    function setSaleActive(bool _active) external onlyOwner {
-        saleActive = _active;
+    // function setSaleActive(bool _active) external onlyOwner {
+    //     saleActive = _active;
+    // }
+
+    function setWhitelist(bool _active) external onlyOwner {
+        iswhitelistingEnabled = _active;
     }
 
-    function setWhitelistingActive(bool _active) external onlyOwner {
-        whitelistingActive = _active;
-    }
+    // function addWhitelist(address[] calldata _whitelist) external onlyOwner {
+    //     for (uint256 i; i < _whitelist.length; i++) {
+    //         whitelist[_whitelist[i]] = true;
+    //     }
+    // }
 
-    function addWhitelist(address[] calldata _whitelist) external onlyOwner {
-        for (uint256 i; i < _whitelist.length; i++) {
-            whitelist[_whitelist[i]] = true;
-        }
-    }
-
-    function buyNFTWithToken(address _purchaseToken) external nonReentrant isWhitelisted {
-        require(saleActive, "!SALE");
+    function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof) external nonReentrant isWhitelisted (proof) {
         require(
             _purchaseToken == USDT ||
                 _purchaseToken == USDC ||
@@ -201,8 +212,7 @@ contract SingleNFTSaleV2 is ReentrancyGuard, Ownable {
         require(success, "!TRANSFER");
     }
 
-    function buyNFTWithETH() external payable nonReentrant isWhitelisted {
-        require(saleActive, "!SALE");
+    function buyNFTWithETH(bytes32[] memory proof) external payable nonReentrant isWhitelisted (proof) {
         require(msg.value == priceInETH, "Incorrect AMOUNT");
         IERC721(nftContract).mintToken(msg.sender);
     }
