@@ -1,5 +1,8 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const keccak256 = require("keccak256");
+const { default: MerkleTree } = require("merkletreejs");
+// window.Buffer = window.Buffer || Buffer;
 
 describe("Single NFT Sale V2", () => {
     var acc1;
@@ -9,6 +12,8 @@ describe("Single NFT Sale V2", () => {
     var acc5;
     var acc6;
     var acc7;
+    var tree;    // retrun merkletree
+    var buf2Hex; // return hex string func
     var nft;
     var usdt;
     var usdc;
@@ -19,6 +24,12 @@ describe("Single NFT Sale V2", () => {
 
     before("Deployment and token distribution", async () => {
         [acc1, acc2, acc3, acc4, acc5, acc6, acc7] = await ethers.getSigners();
+        const addresses = [acc1.address, acc2.address, acc4.address, acc3.address, acc6.address]
+        const leaves = addresses.map(x => keccak256(x));
+        tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+        buf2Hex = x => "0x" + x.toString('hex');
+        const root = buf2Hex(tree.getRoot());
+        console.log('root: ', root);
         const nftContract = await ethers.getContractFactory("Governor");
         nft = await nftContract.deploy(acc1.address, "test.com", 400); // acc1 as treasury 400 === 4% royaltyrate
         await nft.deployed();
@@ -37,8 +48,8 @@ describe("Single NFT Sale V2", () => {
         await tokenTrnsferTxn.wait();
         tokenTrnsferTxn = await dai.connect(acc1).transfer(acc4.address, ethers.BigNumber.from(10).pow(18).mul(1000))
         await tokenTrnsferTxn.wait();
-        const SingleSaleV2 = await ethers.getContractFactory("SingleNFTSaleV2");
-        singleSaleV2 = await SingleSaleV2.deploy(nft.address, acc7.address, ethers.BigNumber.from(10).pow(18).mul(2), 1022, usdt.address, usdc.address, dai.address); //acc7 as TREASURY, here 1022 is $10.22
+        const SingleSaleV2 = await ethers.getContractFactory("NFTPrimaryMint");
+        singleSaleV2 = await SingleSaleV2.deploy(nft.address, acc7.address, ethers.BigNumber.from(10).pow(18).mul(2), 1022, usdt.address, usdc.address, dai.address, root); //acc7 as TREASURY, here 1022 is $10.22
         await singleSaleV2.deployed();
         const givingMinterRoleTxn = await nft.connect(acc1).setMinterRole(singleSaleV2.address);
         await givingMinterRoleTxn.wait();
@@ -47,95 +58,67 @@ describe("Single NFT Sale V2", () => {
     it("Initial value checkes", async () => {
         expect(await singleSaleV2.owner()).to.equal(acc1.address);
         expect(await singleSaleV2.nftContract()).to.equal(nft.address);
-        expect(await singleSaleV2.saleActive()).to.equal(false);
         expect(await singleSaleV2.TREASURY()).to.equal(acc7.address);
         expect(await singleSaleV2.priceInETH()).to.equal(ethers.BigNumber.from(10).pow(18).mul(2));
         expect(await singleSaleV2.priceInUSD()).to.equal(1022);
         expect(await singleSaleV2.USDT()).to.equal(usdt.address);
         expect(await singleSaleV2.USDC()).to.equal(usdc.address);
         expect(await singleSaleV2.DAI()).to.equal(dai.address);
-        expect(await singleSaleV2.whitelistingActive()).to.equal(false);
+        expect(await singleSaleV2.iswhitelistingEnabled()).to.equal(false);
     })
 
-    describe("Start Sale", () => {
-        before("set whitelisting to enable func", async () => {
-            const starSaleTxn = await singleSaleV2.connect(acc1).setSaleActive(true);
-            await starSaleTxn.wait();
-        })
-        it("Check that sake is enabled", async () => {
-            expect(await singleSaleV2.saleActive()).to.equal(true);
-        })
-        it("Error:Contract should give error for unauthorized txn by acc4", async () => {
-            await expect(singleSaleV2.connect(acc4).setSaleActive(true)).to.be.revertedWith("Ownable: caller is not the owner")
-        })
-    });
-
-    describe("Purchase NFT before whitelisting user", () => {
-        before("Set minter role", async () => {
-            const startWhiteListing = await singleSaleV2.connect(acc1).setWhitelistingActive(true);
+    describe("Activate Whitelisting", () => {
+        before("whitelist enable func", async () => {
+            const startWhiteListing = await singleSaleV2.connect(acc1).setWhitelist(true);
             await startWhiteListing.wait();
-            const approveTxn = await usdt.connect(acc2).approve(singleSaleV2.address, ethers.BigNumber.from(2).pow(256).sub(1));
-            await approveTxn.wait();
         })
         it("check that whitelisting is enable", async () => {
-            expect(await singleSaleV2.whitelistingActive()).to.equal(true);
+            expect(await singleSaleV2.iswhitelistingEnabled()).to.equal(true);
         })
-        it("Error:Test that before whitelisting user will get error for purchase nft", async () => {
-            await expect(singleSaleV2.connect(acc2).buyNFTWithToken(usdt.address)).to.be.revertedWith("!WHITELISTED");
+        it("Error:Test that not listed user of allowlist will get error for purchase nft", async () => {
+           const proof = tree.getProof(keccak256(acc5.address)).map(x => buf2Hex(x.data))
+           await expect(singleSaleV2.connect(acc5).buyNFTWithToken(usdt.address,proof)).to.be.revertedWith("Not a part of Allowlist");
         })
-    });
-
-    describe("White list users", () => {
-        before("whitelisting func", async () => {
-            const addWhitekingTxn = await singleSaleV2.connect(acc1).addWhitelist([acc1.address, acc2.address, acc3.address, acc4.address, acc5.address,acc7.address]);
-            await addWhitekingTxn.wait();
-        })
-        it("Check that sake is enabled", async () => {
-            expect(await singleSaleV2.whitelist(acc1.address)).to.equal(true);
-            expect(await singleSaleV2.whitelist(acc2.address)).to.equal(true);
-            expect(await singleSaleV2.whitelist(acc3.address)).to.equal(true);
-            expect(await singleSaleV2.whitelist(acc4.address)).to.equal(true);
-            expect(await singleSaleV2.whitelist(acc5.address)).to.equal(true);
-            expect(await singleSaleV2.whitelist(acc7.address)).to.equal(true);
-        })
-        it("Error:Contract should give error for unauthorized txn by acc4", async () => {
-            await expect(singleSaleV2.connect(acc4).addWhitelist([acc1.address, acc2.address, acc3.address, acc4.address, acc5.address])).to.be.revertedWith("Ownable: caller is not the owner")
-        })
-    });
+    });  
 
     describe("Purchase NFT with USDT ", () => {
         before("Purchase NFT Func", async () => {
-            const purchaseNFTTxn = await singleSaleV2.connect(acc2).buyNFTWithToken(usdt.address);
+            const proof = tree.getProof(keccak256(acc2.address)).map(x => buf2Hex(x.data));
+            const approveTxn = await usdt.connect(acc2).approve(singleSaleV2.address,ethers.BigNumber.from(2).pow(256).sub(1));
+            await approveTxn.wait();
+            const purchaseNFTTxn = await singleSaleV2.connect(acc2).buyNFTWithToken(usdt.address,proof);
             await purchaseNFTTxn.wait();
         })
-        it("Check balnce of user it should be 1", async () => {
+        it("Check NFT balance of user, it should be 1", async () => {
             expect(await nft.balanceOf(acc2.address)).to.equal(ethers.BigNumber.from(1));
         })
-        it("Check balnce of sale it should be 10.22 USDT", async () => {
+        it("Check balance of sale contract, it should be 10.22 USDT", async () => {
             expect(await usdt.balanceOf(singleSaleV2.address)).to.equal(ethers.BigNumber.from(10).pow(4).mul(1022));
         })
     });
 
     describe("Purchase NFT with USDC", () => {
         before("Purchase NFT Func", async () => {
+            const proof = tree.getProof(keccak256(acc3.address)).map(x => buf2Hex(x.data));
             const approveTxn = await usdc.connect(acc3).approve(singleSaleV2.address, ethers.BigNumber.from(2).pow(256).sub(1));
             await approveTxn.wait();
-            const purchaseNFTTxn = await singleSaleV2.connect(acc3).buyNFTWithToken(usdc.address);
+            const purchaseNFTTxn = await singleSaleV2.connect(acc3).buyNFTWithToken(usdc.address,proof);
             await purchaseNFTTxn.wait();
         })
-        it("Check balnce of user it should be 1", async () => {
+        it("Check NFT balance of user, it should be 1", async () => {
             expect(await nft.balanceOf(acc3.address)).to.equal(ethers.BigNumber.from(1));
         })
-        it("Check balnce of sale it should be 10.22 USDC", async () => {
+        it("Check balance of sale contract, it should be 10.22 USDC", async () => {
             expect(await usdc.balanceOf(singleSaleV2.address)).to.equal(ethers.BigNumber.from(10).pow(4).mul(1022));
         })
     });
 
     describe("Purchase NFT with DAI", () => {
         before("Purchase NFT Func", async () => {
+            const proof = tree.getProof(keccak256(acc4.address)).map(x => buf2Hex(x.data));
             const approveTxn = await dai.connect(acc4).approve(singleSaleV2.address, ethers.BigNumber.from(2).pow(256).sub(1));
             await approveTxn.wait();
-            const purchaseNFTTxn = await singleSaleV2.connect(acc4).buyNFTWithToken(dai.address);
+            const purchaseNFTTxn = await singleSaleV2.connect(acc4).buyNFTWithToken(dai.address,proof);
             await purchaseNFTTxn.wait();
         })
         it("Check balnce of user it should be 1", async () => {
@@ -148,7 +131,8 @@ describe("Single NFT Sale V2", () => {
 
     describe("Purchase NFT with ETH", () => {
         before("Purchase NFT Func", async () => {
-            const purchaseNFTTxn = await singleSaleV2.connect(acc4).buyNFTWithETH({ value: ethers.BigNumber.from(10).pow(18).mul(2) });
+            const proof = tree.getProof(keccak256(acc4.address)).map(x => buf2Hex(x.data));
+            const purchaseNFTTxn = await singleSaleV2.connect(acc4).buyNFTWithETH(proof, { value: ethers.BigNumber.from(10).pow(18).mul(2) });
             await purchaseNFTTxn.wait();
         })
         it("Check balnce of user it should be 2", async () => {
@@ -159,14 +143,29 @@ describe("Single NFT Sale V2", () => {
         })
     });
 
+    describe("Purchase NFT with ETH when whitelisting check is disable", () => {
+        before("Purchase NFT Func", async () => {
+            const stopWhiteListing = await singleSaleV2.connect(acc1).setWhitelist(false);
+            await stopWhiteListing.wait();
+            const purchaseNFTTxn = await singleSaleV2.connect(acc5).buyNFTWithETH([], { value: ethers.BigNumber.from(10).pow(18).mul(2) });
+            await purchaseNFTTxn.wait();
+        })
+        it("Check balance of user, it should be 1", async () => {
+            expect(await nft.balanceOf(acc5.address)).to.equal(ethers.BigNumber.from(1));
+        })
+        it("Check balance of sale contract, it should be 4 ETH", async () => {
+            expect(await ethers.provider.getBalance(singleSaleV2.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(4));
+        })
+    });
+
     describe("Withdraw ETH", () => {
         before("Withdraw native token Func", async () => {
             const withdrawNativeTokenTxn = await singleSaleV2.connect(acc1).withdrawETH();
             await withdrawNativeTokenTxn.wait();
         })
-        it("check that contract balance should be 0ETH and acc1 balance should be 10002ETH ", async () => {
+        it("check that contract balance should be 0ETH and acc1 balance should be 10004ETH ", async () => {
             expect(await ethers.provider.getBalance(singleSaleV2.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(0));
-            expect(await ethers.provider.getBalance(acc7.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10002));
+            expect(await ethers.provider.getBalance(acc7.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10004));
         })
     });
 
@@ -194,20 +193,7 @@ describe("Single NFT Sale V2", () => {
         it("Error:Contract should give error for unauthorized txn by acc4", async () => {
             await expect(singleSaleV2.connect(acc4).setTreasury(acc6.address)).to.be.revertedWith("Ownable: caller is not the owner")
         })
-    })
-
-    describe("Change sale status", () => {
-        before("set sale funcs", async () => {
-            const SetSaleActiveTxn = await singleSaleV2.connect(acc1).setSaleActive(false);
-            await SetSaleActiveTxn.wait();
-        })
-        it("Check that sale status is changed to disabled", async () => {
-            expect(await singleSaleV2.TREASURY()).to.equal(acc6.address);
-        })
-        it("Error:Contract should give error for unauthorized txn by acc4", async () => {
-            await expect(singleSaleV2.connect(acc4).setTreasury(acc6.address)).to.be.revertedWith("Ownable: caller is not the owner")
-        })
-    })
+    }) 
 
     describe("Change native token amount ", () => {
         before("change eth price funcs", async () => {
@@ -260,5 +246,4 @@ describe("Single NFT Sale V2", () => {
             await expect(singleSaleV2.connect(acc1).transferOwnership(acc4.address)).to.be.revertedWith("Ownable: caller is not the owner")
         })
     })
-
 });
