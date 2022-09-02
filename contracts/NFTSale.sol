@@ -94,7 +94,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
 
     modifier isWhitelisted(bytes32[] memory proof) {
         if(iswhitelistingEnabled){
-            require(isValid(proof, keccak256(abi.encodePacked(msg.sender))), "Not a part of Allowlist");
+            require(isValid(proof, keccak256(abi.encodePacked(msg.sender))), "Not a part of Whitelist");
         }
         _;
     }

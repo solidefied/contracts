@@ -94,7 +94,7 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
     {
-        (bool success, ) = TREASURY.call{value: getBalance()}("");
+        TREASURY.transfer(this.balance);
         return success;
     }
 
