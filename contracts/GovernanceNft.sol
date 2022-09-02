@@ -25,7 +25,7 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
     uint public TOKEN_SUPPLY;
-    address TREASURY;
+    address payable TREASURY;
     string public baseURI;
 
     constructor(
@@ -33,7 +33,7 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
         string memory _baseUri,
         uint96 _royaltyRate
     ) ERC721("Solidefied Governor", "POWER") {
-        TREASURY = treasury;
+        TREASURY = payable(treasury);
         _setDefaultRoyalty(TREASURY, _royaltyRate);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         TOKEN_SUPPLY = 250;
@@ -79,7 +79,7 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        TREASURY = treasury;
+        TREASURY = payable(treasury);
     }
 
     function setMinterRole(address _minter)
@@ -94,8 +94,8 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
     {
-        TREASURY.transfer(this.balance);
-        return success;
+        TREASURY.transfer(address(this).balance);
+        return true;
     }
 
     function withdrawDonatedTokens(address _erc20Token)

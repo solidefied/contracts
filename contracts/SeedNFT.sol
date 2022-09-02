@@ -23,13 +23,13 @@ contract Angel is ERC721,ERC721Enumerable, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
     uint public TOKEN_SUPPLY;
-    address TREASURY;
+    address payable TREASURY;
     string public baseURI;
 
     constructor(address treasury, string memory _baseUri)
         ERC721("Solidefied Angel", "ANGEL")
     {
-        TREASURY = treasury;
+        TREASURY = payable(treasury);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         TOKEN_SUPPLY = 1000;
         baseURI = _baseUri;
@@ -63,6 +63,13 @@ contract Angel is ERC721,ERC721Enumerable, AccessControl {
         _grantRole(MINTER_ROLE, _minter);
     }
 
+    function setTreasury(address treasury)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        TREASURY = payable(treasury);
+    }
+
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -79,8 +86,8 @@ contract Angel is ERC721,ERC721Enumerable, AccessControl {
         onlyRole(DEFAULT_ADMIN_ROLE)
         returns (bool)
     {
-        TREASURY.transfer(this.balance);
-        return success;
+        TREASURY.transfer(address(this).balance);
+        return true;
     }
 
     function withdrawDonatedToken(address _tokenAddress)
