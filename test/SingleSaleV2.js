@@ -78,7 +78,7 @@ describe("Single NFT Sale V2", () => {
         })
         it("Error:Test that not listed user of allowlist will get error for purchase nft", async () => {
             const proof = tree.getProof(keccak256(acc5.address)).map(x => buf2Hex(x.data))
-            await expect(singleSaleV2.connect(acc5).buyNFTWithToken(usdt.address, proof)).to.be.revertedWith("Not a part of Allowlist");
+            await expect(singleSaleV2.connect(acc5).buyNFTWithToken(usdt.address, proof)).to.be.revertedWith("Unauthorized");
         })
     });
 
