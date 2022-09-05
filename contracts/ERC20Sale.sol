@@ -10,8 +10,13 @@
 
 pragma solidity ^0.8.16;
 
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+
+
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
@@ -45,29 +50,17 @@ interface INonStandardERC20 {
     );
 }
 
-contract ERC20Sale is Ownable {
+contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
-    //rate of token per usdt
+
     uint256 public rate;
-
-    // max allowed purchase of usdt per user
     uint256 public allowedUserBalance;
-
-    // check presale is over or not
-    bool public presaleOver;
-
-    // usdt token address
     IERC20 public usdt;
-
-    // check claimable amount of given user
-    mapping(address => uint256) public claimable;
-
-    // hardcap to raise in usdt
     uint256 public hardcap;
 
-    // participated user addresses
     address[] public participatedUsers;
+    mapping(address => uint256) public claimable;
 
     /*
      * @notice Initialize the contract
@@ -84,14 +77,8 @@ contract ERC20Sale is Ownable {
     ) {
         rate = _rate;
         usdt = IERC20(_usdt);
-        presaleOver = true;
         hardcap = _hardcap;
         allowedUserBalance = _allowedUserBalance;
-    }
-
-    modifier isPresaleOver() {
-        require(presaleOver == true, "The Private Sale Round 1 is not over");
-        _;
     }
 
     /*
@@ -129,44 +116,27 @@ contract ERC20Sale is Ownable {
         return participatedUsers.length;
     }
 
-    /*
-     * @notice end presale
-     */
-    function endPresale() external onlyOwner returns (bool) {
-        presaleOver = true;
-        return presaleOver;
-    }
 
-    /*
-     * @notice start presale
-     */
-    function startPresale() external onlyOwner returns (bool) {
-        presaleOver = false;
-        return presaleOver;
-    }
 
     /*
      * @notice Buy Token with USDT
      * @param _amount: amount of usdt
      */
-    function buyTokenWithUSDT(uint256 _amount) external {
+    function buyTokenWithUSDT(uint256 _amount) external whenNotPaused() nonReentrant {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
-        require(
-            presaleOver == false,
-            "Private Sale Round 1 is over you cannot buy now"
-        );
+
         uint256 tokensPurchased = _amount * rate;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
             _amount + usdt.balanceOf(address(this)) <= hardcap,
-            "Hardcap for the tokens reached"
+            "Hardcap reached"
         );
         // for USDT
         require(
             userUpdatedBalance / rate <= allowedUserBalance,
-            "Exceeded allowed user balance"
+            "Exceeded allowance"
         );
-        doTransferIn(address(usdt), msg.sender, _amount);
+        doTransferIn(address(usdt),msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
         emit ClaimableAmount(msg.sender, tokensPurchased);
@@ -275,7 +245,7 @@ contract ERC20Sale is Ownable {
      * @notice funds withdraw
      * @param _value: usdt value to transfer from contract to owner
      */
-    function fundsWithdrawal(uint256 _value) external onlyOwner isPresaleOver {
+    function fundsWithdrawal(uint256 _value) external onlyOwner whenPaused() nonReentrant {
         doTransferOut(address(usdt), _msgSender(), _value);
     }
 
@@ -284,9 +254,7 @@ contract ERC20Sale is Ownable {
      * @param _tokenAddress: token address to transfer
      * @param _value: token value to transfer from contract to owner
      */
-    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value)
-        external
-        onlyOwner
+    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value) external onlyOwner whenPaused() nonReentrant
     {
         doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }
