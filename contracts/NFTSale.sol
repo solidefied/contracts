@@ -16,37 +16,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-// interface INonStandardERC20 {
-//     function totalSupply() external view returns (uint256);
-
-//     function balanceOf(address owner) external view returns (uint256 balance);
-
-//     /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
-//     function transfer(address dst, uint256 amount) external;
-
-//     /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
-//     function transferFrom(
-//         address src,
-//         address dst,
-//         uint256 amount
-//     ) external;
-
-//     function approve(address spender, uint256 amount)
-//         external
-//         returns (bool success);
-
-//     function allowance(address owner, address spender)
-//         external
-//         view
-//         returns (uint256 remaining);
-
-//     event Transfer(address indexed from, address indexed to, uint256 amount);
-//     event Approval(
-//         address indexed owner,
-//         address indexed spender,
-//         uint256 amount
-//     );
-// }
 
 interface IERC721 {
     function mintToken(address _receiver) external;
@@ -59,9 +28,9 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
     uint256 public priceInUSD;
     address public nftContract;
     address public TREASURY;
-    address public USDT;
-    address public USDC;
-    address public DAI;
+    IERC20 public USDT;
+    IERC20 public USDC;
+    IERC20 public DAI;
     bytes32 public root;
     uint256 public CENTS = 10**4;
 
@@ -83,9 +52,9 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
         TREASURY = _treasury;
         priceInETH = _priceInETH;
         priceInUSD = _priceInUSD; //e.g. $10.22 => 102200
-        USDT = _usdtAddress;
-        USDC = _usdcAddress;
-        DAI = _daiAddress;
+        USDT = IERC20(_usdtAddress);
+        USDC = IERC20(_usdcAddress);
+        DAI = IERC20(_daiAddress);
         root = _root;
     }
 
@@ -122,7 +91,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
     }
 
     function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof) external whenNotPaused() nonReentrant isWhitelisted (proof) {
-        require( _purchaseToken == USDT || _purchaseToken == USDC || _purchaseToken == DAI, "Invalid Token");
+        require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
         uint amount = (priceInUSD * IERC20Metadata(_purchaseToken).decimals()) / CENTS;
         uint oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
         IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
@@ -132,7 +101,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
     }
 
     function TESTINGbuyNFTWithToken(address _purchaseToken) external whenNotPaused() nonReentrant {
-        require( _purchaseToken == USDT || _purchaseToken == USDC || _purchaseToken == DAI, "Invalid Token");
+        require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
         uint amount = (priceInUSD * IERC20Metadata(_purchaseToken).decimals()) / CENTS;
         uint oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
         IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
