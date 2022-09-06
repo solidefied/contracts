@@ -24,7 +24,7 @@ interface IERC721 {
 contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
 
     bool public iswhitelistingEnabled;
-    uint256 public priceInETH;
+    uint256 public priceInETH ; //80000000000000000; // 0.08 ETH
     uint256 public priceInUSD;
     address public nftContract;
     address public TREASURY;
@@ -41,8 +41,8 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
     constructor(
         address _nftContract,
         address _treasury,
-        uint _priceInETH,
-        uint _priceInUSD,
+        uint256 _priceInETH,
+        uint256 _priceInUSD,
         address _usdtAddress,
         address _usdcAddress,
         address _daiAddress,
@@ -90,6 +90,18 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
         iswhitelistingEnabled = _active;
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+
+
+
+
     function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof) external whenNotPaused() nonReentrant isWhitelisted (proof) {
         require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
         uint amount = (priceInUSD * IERC20Metadata(_purchaseToken).decimals()) / CENTS;
@@ -112,7 +124,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
 
 
     function buyNFTWithETH(bytes32[] memory proof) external payable whenNotPaused() nonReentrant isWhitelisted(proof) {
-        require(msg.value == priceInETH, "Incorrect amount");
+        require(msg.value >= priceInETH, "Incorrect amount");
         IERC721(nftContract).mintToken(msg.sender);
     }
 

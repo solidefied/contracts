@@ -11,6 +11,9 @@ module.exports = {
         version: "0.5.12",
       },
       {
+        version: "0.6.8",
+      },
+      {
         version: "0.4.17",
         settings: {},
       },
