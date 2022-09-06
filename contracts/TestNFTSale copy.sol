@@ -52,8 +52,7 @@ interface IERC721 {
     function mintToken(address _receiver) external;
 }
 
-contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
-
+contract NFTPrimaryMint1 is ReentrancyGuard, Ownable, Pausable {
     bool public iswhitelistingEnabled;
     uint256 public priceInETH;
     uint256 public priceInUSD;
@@ -89,23 +88,30 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
     }
 
     modifier isWhitelisted(bytes32[] memory proof) {
-        if(iswhitelistingEnabled){
-            require(isValid(proof, keccak256(abi.encodePacked(msg.sender))), "Unauthorized");
+        if (iswhitelistingEnabled) {
+            require(
+                isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+                "Unauthorized"
+            );
         }
         _;
     }
 
-    function isValid(bytes32[] memory proof, bytes32 leaf) public view returns (bool) {
+    function isValid(bytes32[] memory proof, bytes32 leaf)
+        public
+        view
+        returns (bool)
+    {
         return MerkleProof.verify(proof, root, leaf);
     }
-
 
     function setTreasury(address _treasury) external onlyOwner {
         TREASURY = _treasury;
     }
-//Only Testing
+
+    //Only Testing
     function setMerkleRoot(bytes32 _root) external onlyOwner {
-         root =  _root;
+        root = _root;
     }
 
     function setPriceETH(uint _priceInETH) public onlyOwner {
@@ -120,7 +126,12 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
         iswhitelistingEnabled = _active;
     }
 
-    function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof) external whenNotPaused() nonReentrant isWhitelisted (proof) {
+    function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof)
+        external
+        whenNotPaused
+        nonReentrant
+        isWhitelisted(proof)
+    {
         require(
             _purchaseToken == USDT ||
                 _purchaseToken == USDC ||
@@ -131,7 +142,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
         if (_purchaseToken == USDT || _purchaseToken == USDC) {
             amount = (priceInUSD * 10**6) / 10**2; // dividing by 10**2 for managing cents
         } else {
-            amount = (priceInUSD * 10**18) / 10**2;  
+            amount = (priceInUSD * 10**18) / 10**2;
         }
         _transferTokensIn(_purchaseToken, msg.sender, amount);
         IERC721(nftContract).mintToken(msg.sender);
@@ -191,18 +202,27 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
         require(success, "!TRANSFER");
     }
 
-    function buyNFTWithETH(bytes32[] memory proof) external payable whenNotPaused() nonReentrant isWhitelisted(proof) {
+    function buyNFTWithETH(bytes32[] memory proof)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        isWhitelisted(proof)
+    {
         require(msg.value == priceInETH, "Incorrect AMOUNT");
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    function withdrawTokens(address _erc20Token, uint _amount) external onlyOwner nonReentrant whenPaused()
+    function withdrawTokens(address _erc20Token, uint _amount)
+        external
+        onlyOwner
+        nonReentrant
+        whenPaused
     {
         _transferTokensOut(_erc20Token, TREASURY, _amount);
-
     }
 
-    function withdrawETH() external onlyOwner nonReentrant whenPaused() {
+    function withdrawETH() external onlyOwner nonReentrant whenPaused {
         require(address(this).balance > 0, "!BALANCE");
         payable(TREASURY).transfer(address(this).balance);
     }
