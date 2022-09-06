@@ -104,7 +104,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
 
     function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof) external whenNotPaused() nonReentrant isWhitelisted (proof) {
         require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
-        uint amount = (priceInUSD * IERC20Metadata(_purchaseToken).decimals()) / CENTS;
+        uint amount = (priceInUSD * 10 ** (IERC20Metadata(_purchaseToken).decimals())) / CENTS;
         uint oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
         IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
         uint nBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
@@ -114,7 +114,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
 
     function TESTINGbuyNFTWithToken(address _purchaseToken) external whenNotPaused() nonReentrant {
         require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
-        uint amount = (priceInUSD * IERC20Metadata(_purchaseToken).decimals()) / CENTS;
+        uint amount = (priceInUSD * 10 ** (IERC20Metadata(_purchaseToken).decimals())) / CENTS;
         uint oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
         IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
         uint nBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
