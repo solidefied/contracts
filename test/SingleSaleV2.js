@@ -2,7 +2,6 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const keccak256 = require("keccak256");
 const { default: MerkleTree } = require("merkletreejs");
-// window.Buffer = window.Buffer || Buffer;
 
 describe("Single NFT Sale V2", () => {
     var acc1;
@@ -32,7 +31,7 @@ describe("Single NFT Sale V2", () => {
         const root = buf2Hex(tree.getRoot());
         console.log('root: ', root);
         const nftContract = await ethers.getContractFactory("Governor");
-        nft = await nftContract.deploy(acc1.address, "test.com", 400); // acc1 as treasury 400 === 4% royaltyrate
+        nft = await nftContract.deploy(acc7.address, "test.com", 400); // acc7 as treasury 400 === 4% royaltyrate
         await nft.deployed();
         const token1Contract = await ethers.getContractFactory("Token");
         usdt = await token1Contract.deploy("USDT", "USDT");
@@ -49,7 +48,7 @@ describe("Single NFT Sale V2", () => {
         await tokenTrnsferTxn.wait();
         tokenTrnsferTxn = await dai.connect(acc1).transfer(acc4.address, ethers.BigNumber.from(10).pow(18).mul(1000))
         await tokenTrnsferTxn.wait();
-        const SingleSaleV2 = await ethers.getContractFactory("NFTPrimaryMint");
+        const SingleSaleV2 = await ethers.getContractFactory("NFTPrimaryMint1");
         singleSaleV2 = await SingleSaleV2.deploy(nft.address, acc7.address, ethers.BigNumber.from(10).pow(18).mul(2), 1022, usdt.address, usdc.address, dai.address, root); //acc7 as TREASURY, here 1022 is $10.22
         await singleSaleV2.deployed();
         const givingMinterRoleTxn = await nft.connect(acc1).setMinterRole(singleSaleV2.address);
@@ -156,6 +155,12 @@ describe("Single NFT Sale V2", () => {
         })
         it("Check balance of sale contract, it should be 4 ETH", async () => {
             expect(await ethers.provider.getBalance(singleSaleV2.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(4));
+        })
+    });
+
+    describe("Withdraw ETH before unpaused that functionality", () => {
+        it("check that contract balance should be 0ETH and acc1 balance should be 10004ETH ", async () => {
+            await expect(singleSaleV2.connect(acc1).withdrawETH()).to.be.rejectedWith("Pausable: not paused");
         })
     });
 
