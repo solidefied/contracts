@@ -48,8 +48,8 @@ describe("Single NFT Sale V2", () => {
         await tokenTrnsferTxn.wait();
         tokenTrnsferTxn = await dai.connect(acc1).transfer(acc4.address, ethers.BigNumber.from(10).pow(18).mul(1000))
         await tokenTrnsferTxn.wait();
-        const SingleSaleV2 = await ethers.getContractFactory("NFTPrimaryMint1");
-        singleSaleV2 = await SingleSaleV2.deploy(nft.address, acc7.address, ethers.BigNumber.from(10).pow(18).mul(2), 1022, usdt.address, usdc.address, dai.address, root); //acc7 as TREASURY, here 1022 is $10.22
+        const SingleSaleV2 = await ethers.getContractFactory("NFTPrimaryMint");
+        singleSaleV2 = await SingleSaleV2.deploy(nft.address, acc7.address, ethers.BigNumber.from(10).pow(18).mul(2), 102200, usdt.address, usdc.address, dai.address, root); //acc7 as TREASURY, here 102200 is $10.22
         await singleSaleV2.deployed();
         const givingMinterRoleTxn = await nft.connect(acc1).setMinterRole(singleSaleV2.address);
         await givingMinterRoleTxn.wait();
@@ -60,7 +60,7 @@ describe("Single NFT Sale V2", () => {
         expect(await singleSaleV2.nftContract()).to.equal(nft.address);
         expect(await singleSaleV2.TREASURY()).to.equal(acc7.address);
         expect(await singleSaleV2.priceInETH()).to.equal(ethers.BigNumber.from(10).pow(18).mul(2));
-        expect(await singleSaleV2.priceInUSD()).to.equal(1022);
+        expect(await singleSaleV2.priceInUSD()).to.equal(102200);
         expect(await singleSaleV2.USDT()).to.equal(usdt.address);
         expect(await singleSaleV2.USDC()).to.equal(usdc.address);
         expect(await singleSaleV2.DAI()).to.equal(dai.address);
@@ -159,32 +159,41 @@ describe("Single NFT Sale V2", () => {
     });
 
     describe("Withdraw ETH before unpaused that functionality", () => {
-        it("check that contract balance should be 0ETH and acc1 balance should be 10004ETH ", async () => {
+        it("Error:Pauseable contract should throw error for paused function txn", async () => {
             await expect(singleSaleV2.connect(acc1).withdrawETH()).to.be.rejectedWith("Pausable: not paused");
+        })
+    });
+
+    describe("Withdraw Token before unpaused that functionality", () => {
+        it("Error:Pauseable contract should throw error for paused function txn", async () => {
+            await expect(singleSaleV2.connect(acc1).withdrawTokens(usdt.address)).to.be.rejectedWith("Pausable: not paused");
         })
     });
 
     describe("Withdraw ETH", () => {
         before("Withdraw native token Func", async () => {
+            const pauseFunc = await singleSaleV2.connect(acc1).pause();
+            await pauseFunc.wait();
             const withdrawNativeTokenTxn = await singleSaleV2.connect(acc1).withdrawETH();
             await withdrawNativeTokenTxn.wait();
         })
         it("check that contract balance should be 0ETH and acc1 balance should be 10004ETH ", async () => {
             expect(await ethers.provider.getBalance(singleSaleV2.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(0));
             expect(await ethers.provider.getBalance(acc7.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10004));
+            console.log(await usdt.balanceOf(singleSaleV2.address))
         })
     });
 
     describe("Withdraw specific token", () => {
         before("Withdraw specific token Func", async () => {
-            const withdrawTokenTxn = await singleSaleV2.connect(acc1).withdrawTokens(usdt.address, ethers.BigNumber.from(10).pow(4).mul(1022));
+            const withdrawTokenTxn = await singleSaleV2.connect(acc1).withdrawTokens(usdt.address);
             await withdrawTokenTxn.wait();
         })
         it("Check balance is transfer to or not and it would be 10token and 100token", async () => {
             expect(await usdt.balanceOf(acc7.address)).to.equal(ethers.BigNumber.from(10).pow(4).mul(1022));
         })
         it("Error:Contract should give error for unauthorized txn by acc4", async () => {
-            await expect(singleSaleV2.connect(acc4).withdrawTokens(usdt.address, ethers.BigNumber.from(10).pow(4).mul(1022))).to.be.revertedWith("Ownable: caller is not the owner")
+            await expect(singleSaleV2.connect(acc4).withdrawTokens(usdt.address)).to.be.revertedWith("Ownable: caller is not the owner")
         })
     });
 
