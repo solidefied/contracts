@@ -128,9 +128,9 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    function withdrawTokens(address _erc20Token, uint _amount) external onlyOwner nonReentrant whenPaused()
+    function withdrawTokens(address _erc20Token) external onlyOwner nonReentrant whenPaused()
     {
-         IERC20(_erc20Token).transferFrom(TREASURY, address(this), _amount);
+         IERC20(_erc20Token).transfer(TREASURY, IERC20Metadata(_erc20Token).balanceOf(address(this)));
 
     }
 
