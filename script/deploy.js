@@ -20,18 +20,18 @@ const main = async () => {
     await nft.deployed();
     console.log('nft: ', nft.address);
 
-    const token1Contract = await ethers.getContractFactory("Token");
-    const usdt = await token1Contract.deploy("USDT", "USDT");
+    const token1Contract = await ethers.getContractFactory("TetherToken");
+    const usdt = await token1Contract.deploy(1000, "USDT", "USDT", 6);
     await usdt.deployed();
     console.log('usdt: ', usdt.address);
 
-    const token2Contract = await ethers.getContractFactory("Token");
-    const usdc = await token2Contract.deploy("USDC", "USDC");
+    const token2Contract = await ethers.getContractFactory("FakeUSDC");
+    const usdc = await token2Contract.deploy();
     await usdc.deployed();
     console.log('usdc: ', usdc.address);
 
-    const token3Contract = await ethers.getContractFactory("BaseERC20");
-    const dai = await token3Contract.deploy("Dai", "Dai");
+    const token3Contract = await ethers.getContractFactory("Dai");
+    const dai = await token3Contract.deploy(80001);
     await dai.deployed();
     console.log('dai: ', dai.address);
 
