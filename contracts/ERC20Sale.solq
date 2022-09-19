@@ -17,47 +17,17 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 
-
-interface INonStandardERC20 {
-    function totalSupply() external view returns (uint256);
-
-    function balanceOf(address owner) external view returns (uint256 balance);
-
-    /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
-    function transfer(address dst, uint256 amount) external;
-
-    /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
-    function transferFrom(
-        address src,
-        address dst,
-        uint256 amount
-    ) external;
-
-    function approve(address spender, uint256 amount)
-        external
-        returns (bool success);
-
-    function allowance(address owner, address spender)
-        external
-        view
-        returns (uint256 remaining);
-
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 amount
-    );
-}
-
 contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
 
-    uint256 public rate;
+    uint256 public priceInUSD;
     uint256 public allowedUserBalance;
-    IERC20 public usdt;
+    IERC20 public USDT;
+    IERC20 public USDC;
+    IERC20 public DAI;
     uint256 public hardcap;
+    uint256 public CENTS = 10**4;
 
     address[] public participatedUsers;
     mapping(address => uint256) public claimable;
@@ -70,13 +40,17 @@ contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
      * @param _allowedUserBalance: max allowed purchase of usdt per user
      */
     constructor(
-        uint256 _rate,
-        address _usdt,
+        uint256 _priceInUSD,
+        address _usdtAddress,
+        address _usdcAddress,
+        address _daiAddress,
         uint256 _hardcap,
         uint256 _allowedUserBalance
     ) {
-        rate = _rate;
-        usdt = IERC20(_usdt);
+        priceInUSD = _priceInUSD; //e.g. $10.22 => 102200
+        USDT = IERC20(_usdtAddress);
+        USDC = IERC20(_usdcAddress);
+        DAI = IERC20(_daiAddress);
         hardcap = _hardcap;
         allowedUserBalance = _allowedUserBalance;
     }
@@ -94,7 +68,7 @@ contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
      * @param _rate: token rate per usdt
      */
     function changeRate(uint256 _rate) public onlyOwner {
-        rate = _rate;
+        priceInUSD = _rate;
     }
 
     /*
@@ -121,21 +95,28 @@ contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
     /*
      * @notice Buy Token with USDT
      * @param _amount: amount of usdt
+     function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof) external whenNotPaused() nonReentrant isWhitelisted (proof) {
+        require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
+        uint amount = (priceInUSD * IERC20Metadata(_purchaseToken).decimals()) / CENTS;
+        uint oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
+        IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
+        uint nBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
+        require(nBal >= oBal + amount,"Transfere Failed");
+        IERC721(nftContract).mintToken(msg.sender);
+    }
      */
-    function buyTokenWithUSDT(uint256 _amount) external whenNotPaused() nonReentrant {
-        // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
 
+    function buyTokenWithStableCoin(address _purchaseToken,uint256 _amount) external whenNotPaused() nonReentrant {
+        // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
+        require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
+        uint rate = (priceInUSD * 10 ** (IERC20Metadata(_purchaseToken).decimals())) / CENTS;
         uint256 tokensPurchased = _amount * rate;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
-        require(
-            _amount + usdt.balanceOf(address(this)) <= hardcap,
-            "Hardcap reached"
-        );
-        // for USDT
-        require(
-            userUpdatedBalance / rate <= allowedUserBalance,
-            "Exceeded allowance"
-        );
+        // sum up all the stable balances to calculate the hardcap
+        //require(_amount + usdt.balanceOf(address(this)) <= hardcap,"Hardcap reached");
+        require(userUpdatedBalance / rate <= allowedUserBalance,"Exceeded allowance");
+
+
         doTransferIn(address(usdt),msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);

@@ -8,11 +8,11 @@
 */
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.16;
+pragma solidity 0.8.16;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
@@ -52,15 +52,16 @@ interface IERC721 {
     function mintToken(address _receiver) external;
 }
 
-contract NFTPrimaryMint1 is ReentrancyGuard, Ownable, Pausable {
+contract NFTPrimaryMint is ReentrancyGuard, Ownable,Pausable{
+
     bool public iswhitelistingEnabled;
-    uint256 public priceInETH;
+    uint256 public priceInETH ; //80000000000000000; // 0.08 ETH
     uint256 public priceInUSD;
     address public nftContract;
     address public TREASURY;
-    address public USDT;
-    address public USDC;
-    address public DAI;
+    IERC20 public USDT;
+    IERC20 public USDC;
+    IERC20 public DAI;
     bytes32 public root;
     uint256 public CENTS = 10**4;
 
@@ -71,8 +72,8 @@ contract NFTPrimaryMint1 is ReentrancyGuard, Ownable, Pausable {
     constructor(
         address _nftContract,
         address _treasury,
-        uint _priceInETH,
-        uint _priceInUSD,
+        uint256 _priceInETH,
+        uint256 _priceInUSD,
         address _usdtAddress,
         address _usdcAddress,
         address _daiAddress,
@@ -82,34 +83,30 @@ contract NFTPrimaryMint1 is ReentrancyGuard, Ownable, Pausable {
         TREASURY = _treasury;
         priceInETH = _priceInETH;
         priceInUSD = _priceInUSD; //e.g. $10.2200 => 102200
-        USDT = _usdtAddress;
-        USDC = _usdcAddress;
-        DAI = _daiAddress;
+        USDT = IERC20(_usdtAddress);
+        USDC = IERC20(_usdcAddress);
+        DAI = IERC20(_daiAddress);
         root = _root;
     }
 
     modifier isWhitelisted(bytes32[] memory proof) {
-        if (iswhitelistingEnabled) {
-            require(isValid(proof, keccak256(abi.encodePacked(msg.sender))),"Unauthorized");
+        if(iswhitelistingEnabled){
+            require(isValid(proof, keccak256(abi.encodePacked(msg.sender))), "Unauthorized");
         }
         _;
     }
 
-    function isValid(bytes32[] memory proof, bytes32 leaf)
-        public
-        view
-        returns (bool)
-    {
+    function isValid(bytes32[] memory proof, bytes32 leaf) public view returns (bool) {
         return MerkleProof.verify(proof, root, leaf);
     }
+
 
     function setTreasury(address _treasury) external onlyOwner {
         TREASURY = _treasury;
     }
-
-    //Only Testing
+//Only Testing
     function setMerkleRoot(bytes32 _root) external onlyOwner {
-        root = _root;
+         root =  _root;
     }
 
     function setPriceETH(uint _priceInETH) public onlyOwner {
@@ -124,104 +121,54 @@ contract NFTPrimaryMint1 is ReentrancyGuard, Ownable, Pausable {
         iswhitelistingEnabled = _active;
     }
 
-    function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof)
-        external
-        whenNotPaused
-        nonReentrant
-        isWhitelisted(proof)
-    {
-        require(
-                _purchaseToken == USDT ||
-                _purchaseToken == USDC ||
-                _purchaseToken == DAI,
-            "Invalid TOKEN"
-        );
-        uint amount;
-        if (_purchaseToken == USDT || _purchaseToken == USDC) {
-            amount = (priceInUSD * 10**6) / CENTS; 
-        } else {
-            amount = (priceInUSD * 10**18) / CENTS;
-        }
-        _transferTokensIn(_purchaseToken, msg.sender, amount);
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+
+    function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof) external whenNotPaused() nonReentrant isWhitelisted (proof) {
+        require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
+        uint amount = (priceInUSD * 10 ** (IERC20Metadata(_purchaseToken).decimals())) / CENTS;
+        uint oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
+        IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
+        uint nBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
+        require(nBal >= oBal + amount,"Transfere Failed");
+        IERC721(nftContract).mintToken(msg.sender);
+    }
+//testingwith whitlist removed
+    function TESTINGbuyNFTWithToken(address _purchaseToken) external whenNotPaused() nonReentrant {
+        require( IERC20(_purchaseToken) == USDT || IERC20(_purchaseToken) == USDC || IERC20(_purchaseToken) == DAI, "Invalid Token");
+        uint amount = (priceInUSD * 10 ** (IERC20Metadata(_purchaseToken).decimals())) / CENTS;
+        uint oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
+        IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
+        uint nBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
+        require(nBal >= oBal + amount,"Transfere Failed");
+        IERC721(nftContract).mintToken(msg.sender);
+    }
+//testing
+function mintNFT() external whenNotPaused() nonReentrant {
+        
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    function _transferTokensIn(
-        address tokenAddress,
-        address from,
-        uint256 amount
-    ) private {
-        INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        _token.transferFrom(from, address(this), amount);
-        bool success;
-        assembly {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set success = returndata of external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        require(success, "Transfer failed");
-    }
 
-    function _transferTokensOut(
-        address tokenAddress,
-        address to,
-        uint256 amount
-    ) private {
-        INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        _token.transfer(to, amount);
-        bool success;
-        assembly {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set success = returndata of external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        require(success, "Transfer failed");
-    }
-
-    function buyNFTWithETH(bytes32[] memory proof)
-        external
-        payable
-        whenNotPaused
-        nonReentrant
-        isWhitelisted(proof)
-    {
+    function buyNFTWithETH(bytes32[] memory proof) external payable whenNotPaused() nonReentrant isWhitelisted(proof) {
         require(msg.value >= priceInETH, "Incorrect amount");
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    function withdrawTokens(address _erc20Token, uint _amount)
-        external
-        onlyOwner
-        nonReentrant
-        whenPaused
+    function withdrawTokens(address _erc20Token) external onlyOwner nonReentrant whenPaused()
     {
-        _transferTokensOut(_erc20Token, TREASURY, _amount);
+         IERC20(_erc20Token).transfer(TREASURY, IERC20Metadata(_erc20Token).balanceOf(address(this)));
+
     }
 
-    function withdrawETH() external onlyOwner nonReentrant whenPaused {
-        require(address(this).balance > 0, "Insufficient Balance");
+    function withdrawETH() external onlyOwner nonReentrant whenPaused() {
+        require(address(this).balance > 0, "!BALANCE");
         payable(TREASURY).transfer(address(this).balance);
     }
 }

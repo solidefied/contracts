@@ -8,7 +8,7 @@
 */
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.16;
+pragma solidity 0.8.16;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -107,8 +107,8 @@ contract GovernanceSale is ReentrancyGuard, Ownable, Pausable {
         root = _root;
     }
 
-    function setPriceETH(uint _priceInETH) public onlyOwner {
-        priceInETH = _priceInETH;
+    function setPriceETH(uint _priceInWei) public onlyOwner {
+        priceInETH = _priceInWei;
     }
 
     function setPriceUSD(uint _priceInUSD) public onlyOwner {

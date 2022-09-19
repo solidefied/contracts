@@ -1,0 +1,32 @@
+gas	161809 gas
+transaction cost	137903 gas 
+execution cost	137903 gas 
+
+
+
+Buy NFT with Token
+
+gas	258461 gas
+transaction cost	221948 gas 
+execution cost	221948 gas 
+gas	260944 gas
+transaction cost	224107 gas 
+execution cost	224107 gas 
+
+
+TestingBUY
+
+gas	236987 gas
+transaction cost	203275 gas 
+execution cost	203275 gas
+
+buywithEth
+
+gas	198657 gas
+transaction cost	169945 gas 
+execution cost	169945 gas 
+
+gas	166112 gas
+transaction cost	141645 gas 
+execution cost	141645 gas 
+

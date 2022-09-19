@@ -50,13 +50,12 @@ interface INonStandardERC20 {
     );
 }
 
-contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
+contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
     event ClaimableAmount(address _user, uint256 _claimableAmount);
-
 
     uint256 public rate;
     uint256 public allowedUserBalance;
-    IERC20 public usdt;
+    INonStandardERC20 public usdt;
     uint256 public hardcap;
 
     address[] public participatedUsers;
@@ -76,7 +75,7 @@ contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
         uint256 _allowedUserBalance
     ) {
         rate = _rate;
-        usdt = IERC20(_usdt);
+        usdt = INonStandardERC20(_usdt);
         hardcap = _hardcap;
         allowedUserBalance = _allowedUserBalance;
     }
@@ -183,6 +182,7 @@ contract ERC20Sale is Ownable, Pausable , ReentrancyGuard{
         );
         _token.transferFrom(from, address(this), amount);
         bool success;
+        
         assembly {
             switch returndatasize()
             case 0 {
