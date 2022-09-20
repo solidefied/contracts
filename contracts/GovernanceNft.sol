@@ -7,7 +7,7 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -17,14 +17,13 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
-
+contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
     using Counters for Counters.Counter;
     using Strings for uint256;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
-    uint public TOKEN_SUPPLY;
+    uint256 public TOKEN_SUPPLY;
     address payable TREASURY;
     string public baseURI;
 
@@ -47,10 +46,11 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
         _safeMint(to, tokenId);
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal override(ERC721, ERC721Enumerable) {
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
@@ -114,7 +114,7 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
         return baseURI;
     }
 
-    function getBalance() public view returns (uint) {
+    function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
@@ -133,14 +133,14 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
                 : "";
     }
 
-    function tokenMinted() public view returns (uint) {
+    function tokenMinted() public view returns (uint256) {
         return _tokenIdCounter.current();
     }
 
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721,ERC721Enumerable, AccessControl, ERC2981)
+        override(ERC721, ERC721Enumerable, AccessControl, ERC2981)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

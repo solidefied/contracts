@@ -8,7 +8,7 @@
 */
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -16,15 +16,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-
-
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
 
     function balanceOf(address owner) external view returns (uint256 balance);
 
     function decimals() external view returns (uint256);
-
 
     /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
     function transfer(address dst, uint256 amount) external;
@@ -53,12 +50,12 @@ interface INonStandardERC20 {
     );
 }
 
-contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
+contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
     uint256 public CENTS = 10**6;
     uint256 public priceInUSD = 5 * CENTS;
-    uint public MULTIPLIER = 10**18;
+    uint256 public MULTIPLIER = 10**18;
 
     // uint256 public rate;
     uint256 public allowedUserBalance;
@@ -79,8 +76,8 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
      * @param _allowedUserBalance: max allowed purchase of usdt per user
      */
     constructor(
-        uint256 _hardcap,  //in 10*4
-        uint256 _allowedUserBalance,  //in 10*4
+        uint256 _hardcap, //in 10*4
+        uint256 _allowedUserBalance, //in 10*4
         address _usdtAddress,
         address _usdcAddress,
         address _daiAddress
@@ -99,8 +96,6 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
     function changeHardCap(uint256 _hardcap) public onlyOwner {
         hardcap = _hardcap;
     }
-
-
 
     /*
      * @notice Change Allowed user balance
@@ -121,78 +116,99 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
         return participatedUsers.length;
     }
 
-    function setPriceUSD(uint _priceInUSD) public onlyOwner {
+    function setPriceUSD(uint256 _priceInUSD) public onlyOwner {
         priceInUSD = _priceInUSD;
     }
 
     function getContractBalance() public view returns (uint256) {
-        
-            uint totalBal= (INonStandardERC20(USDT).balanceOf(address(this)) * MULTIPLIER / 10**6 +
-                        INonStandardERC20(USDC).balanceOf(address(this)) * MULTIPLIER / 10**6  +
-                        INonStandardERC20(DAI).balanceOf(address(this)) * MULTIPLIER/ 10**18) * CENTS;
-            return totalBal;
+        uint256 totalBal = ((INonStandardERC20(USDT).balanceOf(address(this)) *
+            MULTIPLIER) /
+            10**6 +
+            (INonStandardERC20(USDC).balanceOf(address(this)) * MULTIPLIER) /
+            10**6 +
+            (INonStandardERC20(DAI).balanceOf(address(this)) * MULTIPLIER) /
+            10**18) * CENTS;
+        return totalBal;
     }
-
-
 
     /*
      * @notice Buy Token with USDT
      * @param _amount: amount of stable with corrosponding decimal
      */
-    function buyToken(address _purchaseToken ,uint256 _amount) external whenNotPaused() nonReentrant {
+    function buyToken(address _purchaseToken, uint256 _amount)
+        external
+        whenNotPaused
+        nonReentrant
+    {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
-        require(_purchaseToken == USDT || _purchaseToken == USDC || _purchaseToken == DAI,"Invalid TOKEN");
+        require(
+            _purchaseToken == USDT ||
+                _purchaseToken == USDC ||
+                _purchaseToken == DAI,
+            "Invalid TOKEN"
+        );
 
-        uint rate = (priceInUSD * 10**INonStandardERC20(_purchaseToken).decimals()) / CENTS ;
-        uint256 tokensPurchased = _amount * MULTIPLIER / rate;
+        uint256 rate = (priceInUSD *
+            10**INonStandardERC20(_purchaseToken).decimals()) / CENTS;
+        uint256 tokensPurchased = (_amount * MULTIPLIER) / rate;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
-        require(_amount * MULTIPLIER/10**6 + getContractBalance() <= hardcap * MULTIPLIER ,"Hardcap reached");
+        require(
+            (_amount * MULTIPLIER) / 10**6 + getContractBalance() <=
+                hardcap * MULTIPLIER,
+            "Hardcap reached"
+        );
 
-        require(userUpdatedBalance * rate <= allowedUserBalance * MULTIPLIER,"Exceeded allowance");
+        require(
+            userUpdatedBalance * rate <= allowedUserBalance * MULTIPLIER,
+            "Exceeded allowance"
+        );
 
-        doTransferIn(address(_purchaseToken),msg.sender, _amount);
+        doTransferIn(address(_purchaseToken), msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
         emit ClaimableAmount(msg.sender, tokensPurchased);
     }
 
-//testing
+    //testing
 
-        function buyTokenUSDT(uint256 _amount) external whenNotPaused() nonReentrant {
+    function buyTokenUSDT(uint256 _amount) external whenNotPaused nonReentrant {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
-        uint256 tokensPurchased = _amount * MULTIPLIER / priceInUSD;
+        uint256 tokensPurchased = (_amount * MULTIPLIER) / priceInUSD;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
-        require((_amount * MULTIPLIER )/10**6 + getContractBalance() <= hardcap * MULTIPLIER,"Hardcap reached");
+        require(
+            (_amount * MULTIPLIER) / 10**6 + getContractBalance() <=
+                hardcap * MULTIPLIER,
+            "Hardcap reached"
+        );
 
-        require(userUpdatedBalance * priceInUSD <= allowedUserBalance * MULTIPLIER,"Exceeded allowance");
+        require(
+            userUpdatedBalance * priceInUSD <= allowedUserBalance * MULTIPLIER,
+            "Exceeded allowance"
+        );
 
-        doTransferIn(address(USDT),msg.sender, _amount);
+        doTransferIn(address(USDT), msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
         emit ClaimableAmount(msg.sender, tokensPurchased);
     }
-
-
-    
-
 
     /*
      * @notice get user list
      * @return userAddress: user address list
      * @return amount : user wise claimable amount list
      */
-    function getUsersList(uint startIndex, uint endIndex)
+    function getUsersList(uint256 startIndex, uint256 endIndex)
         external
         view
-        returns (address[] memory userAddress, uint[] memory amount)
+        returns (address[] memory userAddress, uint256[] memory amount)
     {
-        uint length = endIndex - startIndex;
+        uint256 length = endIndex - startIndex;
         address[] memory _userAddress = new address[](length);
-        uint[] memory _amount = new uint[](length);
+        uint256[] memory _amount = new uint256[](length);
 
-        for (uint i = startIndex; i < endIndex; i++) {
+        for (uint256 i = startIndex; i < endIndex; i++) {
             address user = participatedUsers[i];
-            uint listIndex = i - startIndex;
+            uint256 listIndex = i - startIndex;
             _userAddress[listIndex] = user;
             _amount[listIndex] = claimable[user];
         }
@@ -217,7 +233,7 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
         );
         _token.transferFrom(from, address(this), amount);
         bool success;
-        
+
         assembly {
             switch returndatasize()
             case 0 {
@@ -280,7 +296,12 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
      * @notice funds withdraw
      * @param _value: usdt value to transfer from contract to owner
      */
-    function fundsWithdrawal(uint256 _value) external onlyOwner whenPaused() nonReentrant {
+    function fundsWithdrawal(uint256 _value)
+        external
+        onlyOwner
+        whenPaused
+        nonReentrant
+    {
         doTransferOut(address(usdt), _msgSender(), _value);
     }
 
@@ -289,7 +310,11 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
      * @param _tokenAddress: token address to transfer
      * @param _value: token value to transfer from contract to owner
      */
-    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value) external onlyOwner whenPaused() nonReentrant
+    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value)
+        external
+        onlyOwner
+        whenPaused
+        nonReentrant
     {
         doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }

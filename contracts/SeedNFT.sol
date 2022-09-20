@@ -7,7 +7,7 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -16,13 +16,13 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract Angel is ERC721,ERC721Enumerable, AccessControl {
+contract Angel is ERC721, ERC721Enumerable, AccessControl {
     using Counters for Counters.Counter;
     using Strings for uint256;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
-    uint public TOKEN_SUPPLY;
+    uint256 public TOKEN_SUPPLY;
     address payable TREASURY;
     string public baseURI;
 
@@ -74,11 +74,10 @@ contract Angel is ERC721,ERC721Enumerable, AccessControl {
         address from,
         address to,
         uint256 tokenId
-    ) internal  override(ERC721, ERC721Enumerable) {
+    ) internal override(ERC721, ERC721Enumerable) {
         require(from == address(0) || to == address(0), "Not Transferable");
         super._beforeTokenTransfer(from, to, tokenId);
     }
-    
 
     //to withdraw native currency(if any)
     function withdrawDonatedETH()
@@ -103,12 +102,12 @@ contract Angel is ERC721,ERC721Enumerable, AccessControl {
             IERC20(_tokenAddress).balanceOf(address(this))
         );
     }
-    
+
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
     }
 
-    function getBalance() public view returns (uint) {
+    function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
@@ -127,14 +126,14 @@ contract Angel is ERC721,ERC721Enumerable, AccessControl {
     }
 
     //total token minted
-    function tokenMinted() public view returns (uint) {
+    function tokenMinted() public view returns (uint256) {
         return _tokenIdCounter.current();
     }
 
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721,ERC721Enumerable, AccessControl)
+        override(ERC721, ERC721Enumerable, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

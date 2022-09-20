@@ -8,15 +8,13 @@
 */
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.16;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-
-
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
@@ -50,7 +48,7 @@ interface INonStandardERC20 {
     );
 }
 
-contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
+contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
     uint256 public rate;
@@ -115,13 +113,15 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
         return participatedUsers.length;
     }
 
-
-
     /*
      * @notice Buy Token with USDT
      * @param _amount: amount of usdt
      */
-    function buyTokenWithUSDT(uint256 _amount) external whenNotPaused() nonReentrant {
+    function buyTokenWithUSDT(uint256 _amount)
+        external
+        whenNotPaused
+        nonReentrant
+    {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
 
         uint256 tokensPurchased = _amount * rate;
@@ -135,7 +135,7 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
             userUpdatedBalance / rate <= allowedUserBalance,
             "Exceeded allowance"
         );
-        doTransferIn(address(usdt),msg.sender, _amount);
+        doTransferIn(address(usdt), msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
         emit ClaimableAmount(msg.sender, tokensPurchased);
@@ -146,18 +146,18 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
      * @return userAddress: user address list
      * @return amount : user wise claimable amount list
      */
-    function getUsersList(uint startIndex, uint endIndex)
+    function getUsersList(uint256 startIndex, uint256 endIndex)
         external
         view
-        returns (address[] memory userAddress, uint[] memory amount)
+        returns (address[] memory userAddress, uint256[] memory amount)
     {
-        uint length = endIndex - startIndex;
+        uint256 length = endIndex - startIndex;
         address[] memory _userAddress = new address[](length);
-        uint[] memory _amount = new uint[](length);
+        uint256[] memory _amount = new uint256[](length);
 
-        for (uint i = startIndex; i < endIndex; i++) {
+        for (uint256 i = startIndex; i < endIndex; i++) {
             address user = participatedUsers[i];
-            uint listIndex = i - startIndex;
+            uint256 listIndex = i - startIndex;
             _userAddress[listIndex] = user;
             _amount[listIndex] = claimable[user];
         }
@@ -182,7 +182,7 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
         );
         _token.transferFrom(from, address(this), amount);
         bool success;
-        
+
         assembly {
             switch returndatasize()
             case 0 {
@@ -245,7 +245,12 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
      * @notice funds withdraw
      * @param _value: usdt value to transfer from contract to owner
      */
-    function fundsWithdrawal(uint256 _value) external onlyOwner whenPaused() nonReentrant {
+    function fundsWithdrawal(uint256 _value)
+        external
+        onlyOwner
+        whenPaused
+        nonReentrant
+    {
         doTransferOut(address(usdt), _msgSender(), _value);
     }
 
@@ -254,7 +259,11 @@ contract RaiseSale is Ownable, Pausable , ReentrancyGuard{
      * @param _tokenAddress: token address to transfer
      * @param _value: token value to transfer from contract to owner
      */
-    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value) external onlyOwner whenPaused() nonReentrant
+    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value)
+        external
+        onlyOwner
+        whenPaused
+        nonReentrant
     {
         doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }

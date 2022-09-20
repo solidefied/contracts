@@ -8,7 +8,7 @@
 */
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -49,7 +49,7 @@ interface INonStandardERC20 {
 }
 
 interface IERC721 {
-    function mintToken(address _receiver) external;
+    function mint(address _receiver) external;
 }
 
 contract SeedSale is ReentrancyGuard, Ownable, Pausable {
@@ -58,12 +58,11 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
     uint256 public priceInETH = 1.5 ether;
     uint256 public priceInUSD = 2000 * CENTS;
     address public seedAddress;
-    address public TREASURY = msg.sender;  // replace in prod
+    address public TREASURY = msg.sender; // replace in prod
     address public USDT;
     address public USDC;
     address public DAI;
     bytes32 public root;
-
 
     // address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7; // 6 decimals
     // address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // 6 decimals
@@ -85,7 +84,10 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
 
     modifier isWhitelisted(bytes32[] memory proof) {
         if (iswhitelistingEnabled) {
-            require(isValid(proof, keccak256(abi.encodePacked(msg.sender))),"Unauthorized");
+            require(
+                isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+                "Unauthorized"
+            );
         }
         _;
     }
@@ -107,11 +109,11 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         root = _root;
     }
 
-    function setPriceETH(uint _priceInWei) public onlyOwner {
+    function setPriceETH(uint256 _priceInWei) public onlyOwner {
         priceInETH = _priceInWei;
     }
 
-    function setPriceUSD(uint _priceInUSD) public onlyOwner {
+    function setPriceUSD(uint256 _priceInUSD) public onlyOwner {
         priceInUSD = _priceInUSD;
     }
 
@@ -126,14 +128,14 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         isWhitelisted(proof)
     {
         require(
-                _purchaseToken == USDT ||
+            _purchaseToken == USDT ||
                 _purchaseToken == USDC ||
                 _purchaseToken == DAI,
             "Invalid TOKEN"
         );
-        uint amount;
+        uint256 amount;
         if (_purchaseToken == USDT || _purchaseToken == USDC) {
-            amount = (priceInUSD * 10**6) / CENTS; 
+            amount = (priceInUSD * 10**6) / CENTS;
         } else {
             amount = (priceInUSD * 10**18) / CENTS;
         }
@@ -203,10 +205,10 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         isWhitelisted(proof)
     {
         require(msg.value >= priceInETH, "Incorrect amount");
-        IERC721(seedAddress).mintToken(msg.sender);
+        IERC721(seedAddress).mint(msg.sender);
     }
 
-    function withdrawTokens(address _erc20Token, uint _amount)
+    function withdrawTokens(address _erc20Token, uint256 _amount)
         external
         onlyOwner
         nonReentrant
