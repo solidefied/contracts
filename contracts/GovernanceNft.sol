@@ -40,7 +40,7 @@ contract Governor is ERC721,ERC721Enumerable, ERC2981, AccessControl {
         baseURI = _baseUri;
     }
 
-    function mintToken(address to) external onlyRole(MINTER_ROLE) {
+    function mint(address to) external onlyRole(MINTER_ROLE) {
         uint256 tokenId = _tokenIdCounter.current();
         require(tokenId < TOKEN_SUPPLY, "Limit Reached");
         _tokenIdCounter.increment();

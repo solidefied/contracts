@@ -138,7 +138,7 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
             amount = (priceInUSD * 10**18) / CENTS;
         }
         _transferTokensIn(_purchaseToken, msg.sender, amount);
-        IERC721(seedAddress).mintToken(msg.sender);
+        IERC721(seedAddress).mint(msg.sender);
     }
 
     function _transferTokensIn(
