@@ -57,9 +57,9 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
     uint256 public priceInUSD = 5 * CENTS;
     uint256 public MULTIPLIER = 10**18;
 
-    // uint256 public rate;
+    bool public iswhitelis;
+    bytes32 public root;
     uint256 public allowedUserBalance;
-    INonStandardERC20 public usdt;
     address public USDT;
     address public USDC;
     address public DAI;
@@ -80,13 +80,33 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         uint256 _allowedUserBalance, //in 10*4
         address _usdtAddress,
         address _usdcAddress,
-        address _daiAddress
+        address _daiAddress,
+        bytes32 _root
     ) {
         hardcap = _hardcap;
         allowedUserBalance = _allowedUserBalance;
         USDT = _usdtAddress;
         USDC = _usdcAddress;
         DAI = _daiAddress;
+        root = _root;
+    }
+
+    modifier isWhitelisted(bytes32[] memory proof) {
+        if (iswhitelis) {
+            require(
+                isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+                "Unauthorized"
+            );
+        }
+        _;
+    }
+
+    function isValid(bytes32[] memory proof, bytes32 leaf)
+        public
+        view
+        returns (bool)
+    {
+        return MerkleProof.verify(proof, root, leaf);
     }
 
     /*
@@ -135,11 +155,11 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
      * @notice Buy Token with USDT
      * @param _amount: amount of stable with corrosponding decimal
      */
-    function buyToken(address _purchaseToken, uint256 _amount)
-        external
-        whenNotPaused
-        nonReentrant
-    {
+    function buyToken(
+        address _purchaseToken,
+        uint256 _amount,
+        bytes32[] memory proof
+    ) external whenNotPaused nonReentrant isWhitelisted(proof) {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
         require(
             _purchaseToken == USDT ||
@@ -171,7 +191,12 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
 
     //testing
 
-    function buyTokenUSDT(uint256 _amount) external whenNotPaused nonReentrant {
+    function buyTokenUSDT(uint256 _amount, bytes32[] memory proof)
+        external
+        whenNotPaused
+        nonReentrant
+        isWhitelisted(proof)
+    {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
         uint256 tokensPurchased = (_amount * MULTIPLIER) / priceInUSD;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
@@ -296,13 +321,13 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
      * @notice funds withdraw
      * @param _value: usdt value to transfer from contract to owner
      */
-    function fundsWithdrawal(uint256 _value)
+    function fundsWithdrawal(address _tokenAddress, uint256 _value)
         external
         onlyOwner
         whenPaused
         nonReentrant
     {
-        doTransferOut(address(usdt), _msgSender(), _value);
+        doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }
 
     /*
