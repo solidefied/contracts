@@ -53,7 +53,7 @@ interface IERC721 {
 }
 
 contract GovernanceSale is ReentrancyGuard, Ownable, Pausable {
-    bool public iswhitelistingEnabled;
+    bool public iswhitelis;
     uint256 public CENTS = 10**4;
     uint256 public priceInETH = 1.5 ether;
     uint256 public priceInUSD = 2000 * CENTS;
@@ -83,7 +83,7 @@ contract GovernanceSale is ReentrancyGuard, Ownable, Pausable {
     }
 
     modifier isWhitelisted(bytes32[] memory proof) {
-        if (iswhitelistingEnabled) {
+        if (iswhitelis) {
             require(
                 isValid(proof, keccak256(abi.encodePacked(msg.sender))),
                 "Unauthorized"
@@ -117,8 +117,8 @@ contract GovernanceSale is ReentrancyGuard, Ownable, Pausable {
         priceInUSD = _priceInUSD;
     }
 
-    function setWhitelist(bool _active) external onlyOwner {
-        iswhitelistingEnabled = _active;
+    function setWhitelist(bool _status) external onlyOwner {
+        iswhitelis = _status;
     }
 
     function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof)
