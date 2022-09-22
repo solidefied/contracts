@@ -52,6 +52,8 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
     uint256 public rate;
+    bool public iswhitelis;
+    bytes32 public root;
     uint256 public allowedUserBalance;
     INonStandardERC20 public usdt;
     uint256 public hardcap;
@@ -70,12 +72,32 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         uint256 _rate,
         address _usdt,
         uint256 _hardcap,
-        uint256 _allowedUserBalance
+        uint256 _allowedUserBalance,
+        bytes32 _root
     ) {
         rate = _rate;
         usdt = INonStandardERC20(_usdt);
         hardcap = _hardcap;
         allowedUserBalance = _allowedUserBalance;
+        root = _root;
+    }
+
+    modifier isWhitelisted(bytes32[] memory proof) {
+        if (iswhitelis) {
+            require(
+                isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+                "Unauthorized"
+            );
+        }
+        _;
+    }
+
+    function isValid(bytes32[] memory proof, bytes32 leaf)
+        public
+        view
+        returns (bool)
+    {
+        return MerkleProof.verify(proof, root, leaf);
     }
 
     /*

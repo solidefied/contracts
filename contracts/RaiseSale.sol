@@ -140,6 +140,10 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         priceInUSD = _priceInUSD;
     }
 
+    function setWhitelist(bool _status) external onlyOwner {
+        iswhitelis = _status;
+    }
+
     function getContractBalance() public view returns (uint256) {
         uint256 totalBal = ((INonStandardERC20(USDT).balanceOf(address(this)) *
             MULTIPLIER) /
