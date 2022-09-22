@@ -56,6 +56,7 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
     uint256 public CENTS = 10**6;
     uint256 public priceInUSD = 5 * CENTS;
     uint256 public MULTIPLIER = 10**18;
+    address public TREASURY = msg.sender; //replace in prod
 
     bool public iswhitelis;
     bytes32 public root;
@@ -150,6 +151,10 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
 
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        TREASURY = _treasury;
     }
 
     function getContractBalance() public view returns (uint256) {
@@ -339,7 +344,7 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         whenPaused
         nonReentrant
     {
-        doTransferOut(address(_tokenAddress), _msgSender(), _value);
+        doTransferOut(address(_tokenAddress), TREASURY, _value);
     }
 
     /*
@@ -347,12 +352,8 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
      * @param _tokenAddress: token address to transfer
      * @param _value: token value to transfer from contract to owner
      */
-    function transferAnyERC20Tokens(address _tokenAddress, uint256 _value)
-        external
-        onlyOwner
-        whenPaused
-        nonReentrant
-    {
-        doTransferOut(address(_tokenAddress), _msgSender(), _value);
+    function withdrawETH() external onlyOwner nonReentrant whenPaused {
+        require(address(this).balance > 0, "Insufficient Balance");
+        payable(TREASURY).transfer(address(this).balance);
     }
 }
