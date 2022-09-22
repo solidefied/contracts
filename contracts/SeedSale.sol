@@ -121,6 +121,14 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         iswhitelistingEnabled = _active;
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof)
         external
         whenNotPaused
