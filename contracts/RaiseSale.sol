@@ -190,7 +190,9 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         uint256 tokensPurchased = (_amount * MULTIPLIER) / rate;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
-            (_amount * MULTIPLIER) / 10**6 + getContractBalance() <=
+            (_amount * MULTIPLIER * CENTS) /
+                10**INonStandardERC20(_purchaseToken).decimals() +
+                getContractBalance() <=
                 hardcap * MULTIPLIER,
             "Hardcap reached"
         );
