@@ -358,4 +358,6 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         require(address(this).balance > 0, "Insufficient Balance");
         payable(TREASURY).transfer(address(this).balance);
     }
+
+    receive() external payable {}
 }
