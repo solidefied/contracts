@@ -48,7 +48,7 @@ interface INonStandardERC20 {
     );
 }
 
-contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
+contract RaiseSale2 is Ownable, Pausable, ReentrancyGuard {
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
     uint256 public rate;

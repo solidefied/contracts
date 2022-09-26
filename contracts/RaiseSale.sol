@@ -187,7 +187,7 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
 
         uint256 rate = (priceInUSD *
             10**INonStandardERC20(_purchaseToken).decimals()) / CENTS;
-        uint256 tokensPurchased = (_amount * MULTIPLIER) / rate;
+        uint256 tokensPurchased = ((_amount / 10**INonStandardERC20(_purchaseToken).decimals()) * MULTIPLIER) / (rate / 10**INonStandardERC20(_purchaseToken).decimals());
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
             (_amount * MULTIPLIER * CENTS) /
@@ -198,7 +198,8 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         );
 
         require(
-            userUpdatedBalance * rate <= allowedUserBalance * MULTIPLIER,
+            userUpdatedBalance *
+                (rate / 10**INonStandardERC20(_purchaseToken).decimals()) * CENTS <= allowedUserBalance * MULTIPLIER,
             "Exceeded allowance"
         );
 
