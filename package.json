@@ -17,6 +17,7 @@
     "singlesalev2": "hardhat test test/SingleSaleV2.js",
     "nftsale": "hardhat test test/NFTSale.js",
     "governancenft": "hardhat test test/GovernanceNFT.js",
+    "governancesale": "hardhat test test/GovernanceSale.js",
     "seednft": "hardhat test test/SeedNFT.js",
     "sale": "hardhat test test/Sale.js",
     "usdt": "hardhat test test/USDT.js"

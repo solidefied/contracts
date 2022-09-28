@@ -30,6 +30,8 @@ describe("Sale", function () {
     USDT = await token1Contract.deploy(10000000000, "USDT", "USDT", 6);
     await USDT.deployed();
     const token2Contract = await ethers.getContractFactory("FakeUSDC");
+    const transferToken = await USDT.connect(acc1).transfer(acc2.address, ethers.BigNumber.from(10).pow(6).mul(200));
+    await transferToken.wait();
     USDC = await token2Contract.deploy();
     await USDC.deployed();
     const mintUSDCtoAcc2 = await USDC.connect(acc1).mint(acc2.address, ethers.BigNumber.from(10).pow(6).mul(300))
@@ -62,9 +64,6 @@ describe("Sale", function () {
 
   describe("Buying Token with USDT", () => {
     before("triggering funcs by user", async () => {
-      const transferToken = await USDT.connect(acc1).transfer(acc2.address, ethers.BigNumber.from(10).pow(6).mul(200));
-      await transferToken.wait();
-
       const approveCall = await USDT.connect(acc2).approve(sale.address, ethers.BigNumber.from(2).pow(256).sub(1));
       await approveCall.wait();
 
@@ -164,7 +163,7 @@ describe("Sale", function () {
       await expect(sale.connect(acc4).buyToken(DAI.address, ethers.BigNumber.from(10).pow(18).mul(5), proof)).to.be.revertedWith("Hardcap reached")
     });
   });
-  
+
   describe("Change hardcap ", () => {
     before("triggering funcs by owner", async () => {
       const changeHardCapAmount = await sale.connect(acc1).changeHardCap(ethers.BigNumber.from(10).pow(18).mul(380));
@@ -178,8 +177,8 @@ describe("Sale", function () {
     });
   });
 
-  describe("Purchase new token in sale",() => {
-    it("Error:User should get error if amount is greater then allowed token amount",async () => {
+  describe("Purchase new token in sale", () => {
+    it("Error:User should get error if amount is greater then allowed token amount", async () => {
       const proof = tree.getProof(keccak256(acc4.address)).map(x => buf2Hex(x.data))
       await expect(sale.connect(acc4).buyToken(DAI.address, ethers.BigNumber.from(10).pow(18).mul(100), proof)).to.be.revertedWith("Exceeded allowance")
     })

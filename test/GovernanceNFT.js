@@ -6,6 +6,7 @@ describe("Governance NFT", () => {
   var acc2;
   var acc3;
   var acc4;
+  var acc5;
   var minterRoleBytes;
   var governance;
   var token;
@@ -13,7 +14,7 @@ describe("Governance NFT", () => {
   const zeroAdd = "0x0000000000000000000000000000000000000000";
 
   before("Deployement", async () => {
-    [acc1, acc2, acc3, acc4] = await ethers.getSigners();
+    [acc1, acc2, acc3, acc4, acc5] = await ethers.getSigners();
     const governanceContract = await ethers.getContractFactory("Governor");
     governance = await governanceContract.deploy(acc4.address, "xyz.com", 4); //acc4 as treasuryAddress,BaseURI,Royalty Rate
     await governance.deployed();
@@ -48,7 +49,7 @@ describe("Governance NFT", () => {
 
   describe("Mint NFT Token for acc2", () => {
     before("minter func", async () => {
-      const mintTokenTxn = await governance.connect(acc1).mintToken(acc2.address);
+      const mintTokenTxn = await governance.connect(acc1).mint(acc2.address);
       await mintTokenTxn.wait();
     });
     it("Check token is minted or not", async () => {
@@ -56,11 +57,11 @@ describe("Governance NFT", () => {
     });
 
     it("Error should generated error when passed address is Null", async () => {
-      await expect(governance.connect(acc1).mintToken(zeroAdd)).to.be.revertedWith("ERC721: mint to the zero address");
+      await expect(governance.connect(acc1).mint(zeroAdd)).to.be.revertedWith("ERC721: mint to the zero address");
     });
 
     it("Error:Contract should give error for unauthorized txn by acc3", async () => {
-      await expect(governance.connect(acc3).mintToken(acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${minterRoleBytes}`);
+      await expect(governance.connect(acc3).mint(acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${minterRoleBytes}`);
     });
   });
 
@@ -74,6 +75,16 @@ describe("Governance NFT", () => {
     });
     it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(governance.connect(acc3).setBaseURI("xyzx.com")).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
+    });
+  });
+
+  describe("Set new treasury", () => {
+    before("set treasury func", async () => {
+      const setBaseURItxn = await governance.connect(acc1).setTreasury(acc5.address);
+      await setBaseURItxn.wait();
+    });
+    it("Error:Contract should give error for unauthorized txn by acc3", async () => {
+      await expect(governance.connect(acc3).setTreasury(acc5.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
     });
   });
 
@@ -113,7 +124,6 @@ describe("Governance NFT", () => {
     });
   });
 
-
   describe("Grant Minter role to acc2", () => {
     before("grant role func", async () => {
       const setMinterTxn = await governance.connect(acc1).grantRole(minterRoleBytes, acc2.address); //assigned minter role to acc1
@@ -145,8 +155,8 @@ describe("Governance NFT", () => {
       const WithDrawTokenTxn = await governance.connect(acc1).withdrawDonatedTokens(token.address);
       await WithDrawTokenTxn.wait();
     })
-    it("Test that accidentally token should be transfered to treasuryAddress(acc4)", async () => {
-      expect(await token.balanceOf(acc4.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
+    it("Test that accidentally token should be transfered to treasuryAddress", async () => {
+      expect(await token.balanceOf(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
     });
     it("Error:Contract should give error for token balance is zero", async () => {
       await expect(governance.connect(acc1).withdrawDonatedTokens(token.address)).to.be.revertedWith("!BALANCE");
@@ -165,8 +175,8 @@ describe("Governance NFT", () => {
       const WithDrawETHTxn = await governance.connect(acc1).withdrawDonatedETH();
       await WithDrawETHTxn.wait();
     })
-    it("Check that withdrawed amount is transferd to acc4", async () => {
-      expect(await ethers.provider.getBalance(acc4.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10005))
+    it("Check that withdrawed amount is transferd to treasury address", async () => {
+      expect(await ethers.provider.getBalance(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10005))
     })
     it("Error:Contract should give error for unauthorized txn by acc3", async () => {
       await expect(governance.connect(acc3).withdrawDonatedETH()).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
