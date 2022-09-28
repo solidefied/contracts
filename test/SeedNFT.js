@@ -49,7 +49,7 @@ describe("Seed NFT", () => {
 
   describe("Mint NFT Token for acc2", () => {
     before("minter func", async () => {
-      const mintTokenTxn = await seedNft.connect(acc1).mintToken(acc2.address);
+      const mintTokenTxn = await seedNft.connect(acc1).mint(acc2.address);
       await mintTokenTxn.wait();
     });
     it("Check token is minted or not", async () => {
@@ -57,11 +57,11 @@ describe("Seed NFT", () => {
     });
 
     it("Error should generated error when passed address is Null", async () => {
-      await expect(seedNft.connect(acc1).mintToken(zeroAdd)).to.be.revertedWith("ERC721: mint to the zero address");
+      await expect(seedNft.connect(acc1).mint(zeroAdd)).to.be.revertedWith("ERC721: mint to the zero address");
     });
 
     it("Error:Contract should give error for unauthorized txn by acc3", async () => {
-      await expect(seedNft.connect(acc3).mintToken(acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${minterRoleBytes}`);
+      await expect(seedNft.connect(acc3).mint(acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${minterRoleBytes}`);
     });
   });
 
@@ -153,7 +153,7 @@ describe("Seed NFT", () => {
         value: ethers.utils.parseEther("5")
       });    //send ETH to other acc or contract     
       const WithDrawETHTxn = await seedNft.connect(acc1).withdrawDonatedETH();
-      await WithDrawETHTxn.wait();      
+      await WithDrawETHTxn.wait();
     })
     it("Check that withdrawed amount is transferd to acc5", async () => {
       expect(await ethers.provider.getBalance(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(10005))
