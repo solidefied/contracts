@@ -182,12 +182,11 @@ interface INonStandardERC20 {
 contract Sale is Ownable {
     using SafeMath for uint256;
     event ClaimableAmount(address _user, uint256 _claimableAmount);
-    // address public owner;
-    uint256 public rate;
+    uint256 public rate; //rate = (1 / 1 token price in usd) * (10**12)
     bool public presaleOver;
     IERC20 public usdt; //0xc2132d05d31c914a87c6611c10748aeb04b58e8f
     mapping(address => uint256) public claimable;
-    uint256 public hardcap;
+    uint256 public hardcap; //  hardcap = usd value * (10**6)
     uint256 public totalRaised;
     uint256 public totalTokenPurchase;
 
