@@ -7,7 +7,7 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -26,9 +26,10 @@ contract Angel is ERC721, ERC721Enumerable, AccessControl {
     address payable TREASURY;
     string public baseURI;
 
-    constructor(address treasury, string memory _baseUri)
-        ERC721("Solidefied Angel", "ANGEL")
-    {
+    constructor(
+        address treasury,
+        string memory _baseUri
+    ) ERC721("Solidefied Angel", "ANGEL") {
         TREASURY = payable(treasury);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         TOKEN_SUPPLY = 1000;
@@ -42,41 +43,38 @@ contract Angel is ERC721, ERC721Enumerable, AccessControl {
         _safeMint(to, tokenId);
     }
 
-    function setTokenSupply(uint256 _tokenSupply)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setTokenSupply(
+        uint256 _tokenSupply
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         TOKEN_SUPPLY = _tokenSupply;
     }
 
-    function setBaseURI(string memory _uri)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setBaseURI(
+        string memory _uri
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         baseURI = _uri;
     }
 
-    function setMinterRole(address _minter)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setMinterRole(
+        address _minter
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(MINTER_ROLE, _minter);
     }
 
-    function setTreasury(address treasury)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setTreasury(
+        address treasury
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         TREASURY = payable(treasury);
     }
 
     function _beforeTokenTransfer(
         address from,
         address to,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 batchSize
     ) internal override(ERC721, ERC721Enumerable) {
         require(from == address(0) || to == address(0), "Not Transferable");
-        super._beforeTokenTransfer(from, to, tokenId);
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
     }
 
     //to withdraw native currency(if any)
@@ -89,10 +87,9 @@ contract Angel is ERC721, ERC721Enumerable, AccessControl {
         return true;
     }
 
-    function withdrawDonatedToken(address _tokenAddress)
-        public
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function withdrawDonatedToken(
+        address _tokenAddress
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
             IERC20(_tokenAddress).balanceOf(address(this)) > 0,
             "Low Balance"
@@ -112,13 +109,9 @@ contract Angel is ERC721, ERC721Enumerable, AccessControl {
     }
 
     // Every marketplace looks for this function to read the uri of a token
-    function tokenURI(uint256 _tokenId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
+    function tokenURI(
+        uint256 _tokenId
+    ) public view virtual override returns (string memory) {
         require(_exists(_tokenId), "Invalid TokenId");
 
         return
@@ -130,7 +123,9 @@ contract Angel is ERC721, ERC721Enumerable, AccessControl {
         return _tokenIdCounter.current();
     }
 
-    function supportsInterface(bytes4 interfaceId)
+    function supportsInterface(
+        bytes4 interfaceId
+    )
         public
         view
         override(ERC721, ERC721Enumerable, AccessControl)

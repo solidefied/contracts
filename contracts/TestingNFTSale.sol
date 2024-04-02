@@ -7,9 +7,7 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-
-pragma solidity 0.8.17;
-
+pragma solidity 0.8.25;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -25,20 +23,17 @@ interface INonStandardERC20 {
     function transfer(address dst, uint256 amount) external;
 
     /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
-    function transferFrom(
-        address src,
-        address dst,
+    function transferFrom(address src, address dst, uint256 amount) external;
+
+    function approve(
+        address spender,
         uint256 amount
-    ) external;
+    ) external returns (bool success);
 
-    function approve(address spender, uint256 amount)
-        external
-        returns (bool success);
-
-    function allowance(address owner, address spender)
-        external
-        view
-        returns (uint256 remaining);
+    function allowance(
+        address owner,
+        address spender
+    ) external view returns (uint256 remaining);
 
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(
@@ -62,7 +57,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable, Pausable {
     IERC20 public USDC;
     IERC20 public DAI;
     bytes32 public root;
-    uint256 public CENTS = 10**4;
+    uint256 public CENTS = 10 ** 4;
 
     // address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7; // 6 decimals
     // address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // 6 decimals
@@ -98,11 +93,10 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable, Pausable {
         _;
     }
 
-    function isValid(bytes32[] memory proof, bytes32 leaf)
-        public
-        view
-        returns (bool)
-    {
+    function isValid(
+        bytes32[] memory proof,
+        bytes32 leaf
+    ) public view returns (bool) {
         return MerkleProof.verify(proof, root, leaf);
     }
 
@@ -135,12 +129,10 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable, Pausable {
         _unpause();
     }
 
-    function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof)
-        external
-        whenNotPaused
-        nonReentrant
-        isWhitelisted(proof)
-    {
+    function buyNFTWithToken(
+        address _purchaseToken,
+        bytes32[] memory proof
+    ) external whenNotPaused nonReentrant isWhitelisted(proof) {
         require(
             IERC20(_purchaseToken) == USDT ||
                 IERC20(_purchaseToken) == USDC ||
@@ -148,7 +140,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable, Pausable {
             "Invalid Token"
         );
         uint256 amount = (priceInUSD *
-            10**(IERC20Metadata(_purchaseToken).decimals())) / CENTS;
+            10 ** (IERC20Metadata(_purchaseToken).decimals())) / CENTS;
         uint256 oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
         IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
         uint256 nBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
@@ -157,11 +149,9 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable, Pausable {
     }
 
     //testingwith whitlist removed
-    function TESTINGbuyNFTWithToken(address _purchaseToken)
-        external
-        whenNotPaused
-        nonReentrant
-    {
+    function TESTINGbuyNFTWithToken(
+        address _purchaseToken
+    ) external whenNotPaused nonReentrant {
         require(
             IERC20(_purchaseToken) == USDT ||
                 IERC20(_purchaseToken) == USDC ||
@@ -169,7 +159,7 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable, Pausable {
             "Invalid Token"
         );
         uint256 amount = (priceInUSD *
-            10**(IERC20Metadata(_purchaseToken).decimals())) / CENTS;
+            10 ** (IERC20Metadata(_purchaseToken).decimals())) / CENTS;
         uint256 oBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
         IERC20(_purchaseToken).transferFrom(msg.sender, address(this), amount);
         uint256 nBal = IERC20Metadata(_purchaseToken).balanceOf(address(this));
@@ -182,23 +172,16 @@ contract NFTPrimaryMint is ReentrancyGuard, Ownable, Pausable {
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    function buyNFTWithETH(bytes32[] memory proof)
-        external
-        payable
-        whenNotPaused
-        nonReentrant
-        isWhitelisted(proof)
-    {
+    function buyNFTWithETH(
+        bytes32[] memory proof
+    ) external payable whenNotPaused nonReentrant isWhitelisted(proof) {
         require(msg.value >= priceInETH, "Incorrect amount");
         IERC721(nftContract).mintToken(msg.sender);
     }
 
-    function withdrawTokens(address _erc20Token)
-        external
-        onlyOwner
-        nonReentrant
-        whenPaused
-    {
+    function withdrawTokens(
+        address _erc20Token
+    ) external onlyOwner nonReentrant whenPaused {
         IERC20(_erc20Token).transfer(
             TREASURY,
             IERC20Metadata(_erc20Token).balanceOf(address(this))

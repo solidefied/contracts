@@ -7,7 +7,7 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -49,43 +49,40 @@ contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
     function _beforeTokenTransfer(
         address from,
         address to,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 batchSize
     ) internal override(ERC721, ERC721Enumerable) {
-        super._beforeTokenTransfer(from, to, tokenId);
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
     }
 
-    function setDefaultRoyalty(address _receiver, uint96 _royaltyRate)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setDefaultRoyalty(
+        address _receiver,
+        uint96 _royaltyRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setDefaultRoyalty(_receiver, _royaltyRate);
     }
 
-    function setTokenSupply(uint256 _tokenSupply)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setTokenSupply(
+        uint256 _tokenSupply
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         TOKEN_SUPPLY = _tokenSupply;
     }
 
-    function setBaseURI(string memory _uri)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setBaseURI(
+        string memory _uri
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         baseURI = _uri;
     }
 
-    function setTreasury(address treasury)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setTreasury(
+        address treasury
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         TREASURY = payable(treasury);
     }
 
-    function setMinterRole(address _minter)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setMinterRole(
+        address _minter
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(MINTER_ROLE, _minter);
     }
 
@@ -98,10 +95,9 @@ contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
         return true;
     }
 
-    function withdrawDonatedTokens(address _erc20Token)
-        public
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function withdrawDonatedTokens(
+        address _erc20Token
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         // In case of Non standard ERC20 tokens change this function
         require(IERC20(_erc20Token).balanceOf(address(this)) > 0, "!BALANCE");
         IERC20(_erc20Token).transfer(
@@ -118,13 +114,9 @@ contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
         return address(this).balance;
     }
 
-    function tokenURI(uint256 _tokenId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
+    function tokenURI(
+        uint256 _tokenId
+    ) public view virtual override returns (string memory) {
         require(_exists(_tokenId), "Invalid TokenId");
 
         return
@@ -137,7 +129,9 @@ contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
         return _tokenIdCounter.current();
     }
 
-    function supportsInterface(bytes4 interfaceId)
+    function supportsInterface(
+        bytes4 interfaceId
+    )
         public
         view
         override(ERC721, ERC721Enumerable, AccessControl, ERC2981)

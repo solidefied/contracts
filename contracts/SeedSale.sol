@@ -7,8 +7,7 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-
-pragma solidity 0.8.17;
+pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -25,20 +24,17 @@ interface INonStandardERC20 {
     function transfer(address dst, uint256 amount) external;
 
     /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
-    function transferFrom(
-        address src,
-        address dst,
+    function transferFrom(address src, address dst, uint256 amount) external;
+
+    function approve(
+        address spender,
         uint256 amount
-    ) external;
+    ) external returns (bool success);
 
-    function approve(address spender, uint256 amount)
-        external
-        returns (bool success);
-
-    function allowance(address owner, address spender)
-        external
-        view
-        returns (uint256 remaining);
+    function allowance(
+        address owner,
+        address spender
+    ) external view returns (uint256 remaining);
 
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(
@@ -54,7 +50,7 @@ interface IERC721 {
 
 contract SeedSale is ReentrancyGuard, Ownable, Pausable {
     bool public iswhitelistingEnabled;
-    uint256 public CENTS = 10**4;
+    uint256 public CENTS = 10 ** 4;
     uint256 public priceInETH = 1.5 ether;
     uint256 public priceInUSD = 2000 * CENTS;
     address public seedAddress;
@@ -92,11 +88,10 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         _;
     }
 
-    function isValid(bytes32[] memory proof, bytes32 leaf)
-        public
-        view
-        returns (bool)
-    {
+    function isValid(
+        bytes32[] memory proof,
+        bytes32 leaf
+    ) public view returns (bool) {
         return MerkleProof.verify(proof, root, leaf);
     }
 
@@ -129,12 +124,10 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         _unpause();
     }
 
-    function buyNFTWithToken(address _purchaseToken, bytes32[] memory proof)
-        external
-        whenNotPaused
-        nonReentrant
-        isWhitelisted(proof)
-    {
+    function buyNFTWithToken(
+        address _purchaseToken,
+        bytes32[] memory proof
+    ) external whenNotPaused nonReentrant isWhitelisted(proof) {
         require(
             _purchaseToken == USDT ||
                 _purchaseToken == USDC ||
@@ -143,9 +136,9 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         );
         uint256 amount;
         if (_purchaseToken == USDT || _purchaseToken == USDC) {
-            amount = (priceInUSD * 10**6) / CENTS;
+            amount = (priceInUSD * 10 ** 6) / CENTS;
         } else {
-            amount = (priceInUSD * 10**18) / CENTS;
+            amount = (priceInUSD * 10 ** 18) / CENTS;
         }
         _transferTokensIn(_purchaseToken, msg.sender, amount);
         IERC721(seedAddress).mint(msg.sender);
@@ -156,7 +149,7 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         address from,
         uint256 amount
     ) private {
-           if (USDT == tokenAddress) {
+        if (USDT == tokenAddress) {
             INonStandardERC20 _token = INonStandardERC20(tokenAddress);
             _token.transferFrom(from, address(this), amount);
             bool success;
@@ -188,7 +181,7 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         address to,
         uint256 amount
     ) private {
-         if (USDT == tokenAddress) {
+        if (USDT == tokenAddress) {
             INonStandardERC20 _token = INonStandardERC20(tokenAddress);
             _token.transfer(to, amount);
             bool success;
@@ -215,23 +208,17 @@ contract SeedSale is ReentrancyGuard, Ownable, Pausable {
         }
     }
 
-    function buyNFTWithETH(bytes32[] memory proof)
-        external
-        payable
-        whenNotPaused
-        nonReentrant
-        isWhitelisted(proof)
-    {
+    function buyNFTWithETH(
+        bytes32[] memory proof
+    ) external payable whenNotPaused nonReentrant isWhitelisted(proof) {
         require(msg.value >= priceInETH, "Incorrect amount");
         IERC721(seedAddress).mint(msg.sender);
     }
 
-    function withdrawTokens(address _erc20Token, uint256 _amount)
-        external
-        onlyOwner
-        nonReentrant
-        whenPaused
-    {
+    function withdrawTokens(
+        address _erc20Token,
+        uint256 _amount
+    ) external onlyOwner nonReentrant whenPaused {
         _transferTokensOut(_erc20Token, TREASURY, _amount);
     }
 
