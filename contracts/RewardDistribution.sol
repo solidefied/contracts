@@ -46,10 +46,13 @@ contract RewardDistribution is ERC20, Ownable {
     uint256 assessmentCost = 2000;
     mapping(address => Assignment) Assignments;
     address public USDT;
+    address public Treasury;
 
-    constructor(address _usdt) ERC20("AirDropToken", "ADT") {
+    constructor(address _usdt, address _treasury) ERC20("AirDropToken", "ADT") {
         USDT = _usdt;
+        Treasury = _treasury;
     }
+
     event AssignmentCreated(address _user, uint256 claimableAmount);
     event MerkleRootAdded(address productOwner, bytes32 merkleRoot);
     event RewardsClaimed(
@@ -82,6 +85,10 @@ contract RewardDistribution is ERC20, Ownable {
 
     function setAssessmentCost(uint256 _newCost) external onlyOwner {
         assessmentCost = _newCost;
+    }
+
+    function setNewTresury(address _newTresury) external onlyOwner {
+        Treasury = _newTresury;
     }
 
     function setRewardClaim(
@@ -214,12 +221,12 @@ contract RewardDistribution is ERC20, Ownable {
     }
 
     function skim(address _tokenAddress, uint256 _value) external onlyOwner {
-        doTransferOut(address(_tokenAddress), owner(), _value);
+        doTransferOut(address(_tokenAddress), Treasury, _value);
     }
 
     function skimETH() external onlyOwner {
         require(address(this).balance > 0, "Insufficient Balance");
-        payable(owner()).transfer(address(this).balance);
+        payable(Treasury).transfer(address(this).balance);
     }
 
     receive() external payable {}
