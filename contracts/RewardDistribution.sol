@@ -38,15 +38,14 @@ interface INonStandardERC20 {
 
 contract RewardDistribution is ERC20, Ownable {
     struct Assignment {
+        mapping(address => bool) govList;
         bytes32 merkleRoot;
         uint256 amount;
         bool isActive;
     }
     uint256 assessmentCost = 2000;
     mapping(address => Assignment) Assignments;
-
-    mapping(address => mapping(address => bool)) govList;
-    address USDT;
+    address public USDT;
 
     constructor(address _usdt) ERC20("AirDropToken", "ADT") {
         USDT = _usdt;
@@ -110,14 +109,17 @@ contract RewardDistribution is ERC20, Ownable {
         );
 
         // check if already claimed
-        require(!govList[_productOwner][msg.sender], "Already claimed");
+        require(
+            !(Assignments[_productOwner].govList[msg.sender]),
+            "Already claimed"
+        );
 
         // verify proof
         bytes32 merkleRoot = Assignments[_productOwner].merkleRoot;
         _verifyProof(merkleRoot, proof, amount, msg.sender);
 
         // set reward claimed for the user
-        govList[_productOwner][msg.sender] = true;
+        Assignments[_productOwner].govList[msg.sender] = true;
         Assignments[_productOwner].amount -= amount;
 
         // Send funds
