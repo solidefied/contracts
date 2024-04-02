@@ -22,7 +22,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
  *
  */
 
-contract SoulboundNFT is ERC721, ERC721URIStorage, AccessControl {
+contract SentimentScore is ERC721, ERC721URIStorage, AccessControl {
     using Counters for Counters.Counter;
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
@@ -72,7 +72,7 @@ contract SoulboundNFT is ERC721, ERC721URIStorage, AccessControl {
         uint256 tokenId,
         uint256 batchSize
     ) internal override(ERC721) onlyRole(MINTER_ROLE) {
-        require(from == address(0) && to == msg.sender, "Not Transferable");
+        require(from == address(0), "Not Transferable");
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
     }
 

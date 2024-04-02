@@ -70,6 +70,8 @@ contract RewardDistribution is ERC20, Ownable {
         emit AssignmentCreated(msg.sender, _amount);
     }
 
+    // Call this at the time of Score creation
+
     function setMerkleRoot(
         address _productOwner,
         bytes32 _merkleRoot
@@ -212,4 +214,11 @@ contract RewardDistribution is ERC20, Ownable {
     function skim(address _tokenAddress, uint256 _value) external onlyOwner {
         doTransferOut(address(_tokenAddress), owner(), _value);
     }
+
+    function skimETH() external onlyOwner {
+        require(address(this).balance > 0, "Insufficient Balance");
+        payable(owner()).transfer(address(this).balance);
+    }
+
+    receive() external payable {}
 }
