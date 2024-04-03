@@ -10,146 +10,8 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity 0.8.20;
 
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address payable) {
-        return payable(msg.sender);
-    }
-
-    function _msgData() internal view virtual returns (bytes memory) {
-        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
-        return msg.data;
-    }
-}
-
-contract Ownable is Context {
-    address private _owner;
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
-
-    /**
-     * @dev Initializes the contract setting the deployer as the initial owner.
-     */
-    constructor() {
-        address msgSender = _msgSender();
-        _owner = msgSender;
-        emit OwnershipTransferred(address(0), msgSender);
-    }
-
-    /**
-     * @dev Returns the address of the current owner.
-     */
-    function owner() public view returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
-        _;
-    }
-
-    /**
-     * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
-     *
-     * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
-     */
-    function renounceOwnership() public virtual onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
-     */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(
-            newOwner != address(0),
-            "Ownable: new owner is the zero address"
-        );
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
-    }
-}
-
-// import ierc20 & safemath & non-standard
-interface IERC20 {
-    function totalSupply() external view returns (uint256);
-
-    function balanceOf(address account) external view returns (uint256);
-
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256);
-
-    function transfer(
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 value
-    );
-}
-
-library SafeMath {
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        assert(b <= a);
-        return a - b;
-    }
-
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        assert(c >= a);
-        return c;
-    }
-
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-        // benefit is lost if 'b' is also tested.
-        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-        if (a == 0) {
-            return 0;
-        }
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-
-    function div(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        // Solidity only automatically asserts when dividing by 0
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-        return c;
-    }
-}
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
@@ -188,8 +50,7 @@ interface INonStandardERC20 {
     );
 }
 
-contract Sale is Ownable {
-    using SafeMath for uint256;
+contract ERC20Sale is AccessControl {
     event ClaimableAmount(address _user, uint256 _claimableAmount);
     uint256 public rate; //rate = (1 / 1 token price in usd) * (10**12)
     bool public presaleOver;
@@ -206,6 +67,7 @@ contract Sale is Ownable {
         usdt = IERC20(_usdt);
         presaleOver = true;
         hardcap = _hardcap;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     modifier isPresaleOver() {
@@ -213,11 +75,13 @@ contract Sale is Ownable {
         _;
     }
 
-    function changeHardCap(uint256 _hardcap) public onlyOwner {
+    function changeHardCap(
+        uint256 _hardcap
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         hardcap = _hardcap;
     }
 
-    function changeRate(uint256 _rate) public onlyOwner {
+    function changeRate(uint256 _rate) public onlyRole(DEFAULT_ADMIN_ROLE) {
         rate = _rate;
     }
 
@@ -225,12 +89,16 @@ contract Sale is Ownable {
         return participatedUsers.length;
     }
 
-    function endPresale() external onlyOwner returns (bool) {
+    function endPresale() external onlyRole(DEFAULT_ADMIN_ROLE) returns (bool) {
         presaleOver = true;
         return presaleOver;
     }
 
-    function startPresale() external onlyOwner returns (bool) {
+    function startPresale()
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        returns (bool)
+    {
         presaleOver = false;
         return presaleOver;
     }
@@ -238,18 +106,18 @@ contract Sale is Ownable {
     function buyTokenWithUSDT(uint256 _amount) external {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
         require(presaleOver == false, "Sale  is over");
-        uint256 tokensPurchased = _amount.mul(rate);
-        uint256 userUpdatedBalance = claimable[msg.sender].add(tokensPurchased);
+        uint256 tokensPurchased = _amount * rate;
+        uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
-            _amount.add(usdt.balanceOf(address(this))) <= hardcap,
+            _amount + (usdt.balanceOf(address(this))) <= hardcap,
             "Hardcap reached"
         );
         // for USDT
         doTransferIn(address(usdt), msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
-        totalRaised = totalRaised.add(_amount);
-        totalTokenPurchase = totalTokenPurchase.add(tokensPurchased);
+        totalRaised = totalRaised + _amount;
+        totalTokenPurchase = totalTokenPurchase + tokensPurchased;
         emit ClaimableAmount(msg.sender, tokensPurchased);
     }
 
@@ -261,13 +129,13 @@ contract Sale is Ownable {
         view
         returns (address[] memory userAddress, uint[] memory amount)
     {
-        uint length = endIndex.sub(startIndex);
+        uint length = endIndex - startIndex;
         address[] memory _userAddress = new address[](length);
         uint[] memory _amount = new uint[](length);
 
-        for (uint i = startIndex; i < endIndex; i = i.add(1)) {
+        for (uint i = startIndex; i < endIndex; i++) {
             address user = participatedUsers[i];
-            uint listIndex = i.sub(startIndex);
+            uint listIndex = i - startIndex;
             _userAddress[listIndex] = user;
             _amount[listIndex] = claimable[user];
         }
@@ -308,7 +176,7 @@ contract Sale is Ownable {
             address(this)
         );
         require(balanceAfter >= balanceBefore, "TOKEN_TRANSFER_IN_OVERFLOW");
-        return balanceAfter.sub(balanceBefore); // underflow already checked above, just subtract
+        return balanceAfter - balanceBefore; // underflow already checked above, just subtract
     }
 
     function doTransferOut(
@@ -338,14 +206,16 @@ contract Sale is Ownable {
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
     }
 
-    function fundsWithdrawal(uint256 _value) external onlyOwner isPresaleOver {
+    function fundsWithdrawal(
+        uint256 _value
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) isPresaleOver {
         doTransferOut(address(usdt), _msgSender(), _value);
     }
 
     function transferAnyERC20Tokens(
         address _tokenAddress,
         uint256 _value
-    ) external onlyOwner {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }
 }
