@@ -7,13 +7,14 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
@@ -48,7 +49,7 @@ interface IERC721 {
     function mint(address _receiver) external;
 }
 
-contract GovernanceSale is ReentrancyGuard, Ownable, Pausable {
+contract GovernanceSale is ReentrancyGuard, Ownable(msg.sender), Pausable {
     bool public iswhitelis;
     uint256 public CENTS = 10 ** 4;
     uint256 public priceInETH = 1.5 ether;

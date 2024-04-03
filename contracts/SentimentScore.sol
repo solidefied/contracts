@@ -7,65 +7,38 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-/**
- * @title Soulbound NFT
- * @author Breakthrough-Labs Inc.
- * @notice NFT, Soulbound, ERC721
- * @custom:version 1.0.10
- * @custom:address 1285485
- * @custom:default-precision 0
- * @custom:simple-description Soulbound NFT with owner minting.
- * @dev ERC721 Soulbound NFT with the following features:
- *
- *  - Deployer can mint to recipients.
- *  - No transfer capability.
- *
- */
-
-contract SentimentScore is ERC721, ERC721URIStorage, AccessControl {
-    using Counters for Counters.Counter;
+contract SentimentScore is
+    ERC721,
+    ERC721URIStorage,
+    ERC721Burnable,
+    AccessControl
+{
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    Counters.Counter private _tokenIdCounter;
+    uint256 public _nextTokenId;
 
-    /**
-     * @param _name NFT Name
-     * @param _symbol NFT Symbol
-     */
-    constructor(
-        string memory _name,
-        string memory _symbol
-    ) payable ERC721(_name, _symbol) {
+    constructor() ERC721("SentimentScore", "SCORE") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
     }
 
-    /**
-     * @dev An external method for the owner to mint Soulbound NFTs. Requires that the minted NFTs will not exceed the `MAX_SUPPLY`.
-     */
-    function mint(
+    function safeMint(
         address to,
         string memory uri
-    ) external onlyRole(MINTER_ROLE) {
-        uint256 tokenId = _tokenIdCounter.current();
-        _tokenIdCounter.increment();
+    ) public onlyRole(MINTER_ROLE) {
+        uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
     }
 
-    // Required Overrides
-
-    function _burn(
-        uint256 tokenId
-    ) internal override(ERC721, ERC721URIStorage) {
-        super._burn(tokenId);
-    }
+    // The following functions are overrides required by Solidity.
 
     function tokenURI(
         uint256 tokenId
@@ -73,14 +46,23 @@ contract SentimentScore is ERC721, ERC721URIStorage, AccessControl {
         return super.tokenURI(tokenId);
     }
 
-    function _beforeTokenTransfer(
-        address from,
+    function _update(
         address to,
         uint256 tokenId,
-        uint256 batchSize
-    ) internal override(ERC721) onlyRole(MINTER_ROLE) {
-        require(from == address(0), "Not Transferable");
-        super._beforeTokenTransfer(from, to, tokenId, batchSize);
+        address auth
+    ) internal override(ERC721) returns (address) {
+        address from = super._ownerOf(tokenId);
+
+        // This condition ensures that the function proceeds in two scenarios:
+        // 1. Minting a new token: `from` is the zero address, and `to` is a non-zero address.
+        // 2. Burning a token: `to` is the zero address. This doesn't explicitly require `from` to be non-zero since _ownerOf will ensure the token exists.
+        // It implicitly prevents transferring since it will fail for attempts to transfer from a non-zero `from` to a non-zero `to`.
+        require(
+            (from == address(0) && to != address(0)) || (to == address(0)),
+            "SentimentScore: Tokens are non-transferable"
+        );
+
+        return super._update(to, tokenId, auth);
     }
 
     function supportsInterface(

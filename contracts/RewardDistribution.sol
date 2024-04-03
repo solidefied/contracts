@@ -7,12 +7,12 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity 0.8.20;
 
-// Importing OpenZeppelin contracts for ERC20 token functionality, Merkle proof verification, and ownership management.
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+// Importing OpenZeppelin contracts for  Merkle proof verification, and ownership management.
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 // Interface for non-standard ERC20 tokens to handle tokens that do not return a boolean on transfer and transferFrom.
 interface INonStandardERC20 {
@@ -38,7 +38,7 @@ interface INonStandardERC20 {
 }
 
 // Contract for distributing rewards, extends ERC20 token functionality and ownership features.
-contract RewardDistribution is ERC20, AccessControl {
+contract RewardDistribution is AccessControl {
     // Structure to hold assignment details including governance list, Merkle root, amount, and active status.
     struct Assignment {
         mapping(address => bool) govList;
@@ -61,7 +61,7 @@ contract RewardDistribution is ERC20, AccessControl {
     );
 
     // Constructor to set initial values for USDT token address and Treasury.
-    constructor(address _usdt, address _treasury) ERC20("AirDropToken", "ADT") {
+    constructor(address _usdt, address _treasury) {
         USDT = _usdt;
         Treasury = _treasury;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);

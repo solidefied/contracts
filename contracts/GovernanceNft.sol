@@ -7,22 +7,18 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 
-contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
-    using Counters for Counters.Counter;
-    using Strings for uint256;
-
+contract Governor is ERC721, ERC721Burnable, ERC2981, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    Counters.Counter private _tokenIdCounter;
+    uint256 public nextTokenId;
     uint256 public TOKEN_SUPPLY;
     address payable TREASURY;
     string public baseURI;
@@ -40,19 +36,9 @@ contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
     }
 
     function mint(address to) external onlyRole(MINTER_ROLE) {
-        uint256 tokenId = _tokenIdCounter.current();
-        require(tokenId < TOKEN_SUPPLY, "Limit Reached");
-        _tokenIdCounter.increment();
+        uint256 tokenId = nextTokenId++;
+        require(tokenId <= TOKEN_SUPPLY, "Limit Reached");
         _safeMint(to, tokenId);
-    }
-
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId,
-        uint256 batchSize
-    ) internal override(ERC721, ERC721Enumerable) {
-        super._beforeTokenTransfer(from, to, tokenId, batchSize);
     }
 
     function setDefaultRoyalty(
@@ -114,29 +100,13 @@ contract Governor is ERC721, ERC721Enumerable, ERC2981, AccessControl {
         return address(this).balance;
     }
 
-    function tokenURI(
-        uint256 _tokenId
-    ) public view virtual override returns (string memory) {
-        require(_exists(_tokenId), "Invalid TokenId");
-
-        return
-            bytes(baseURI).length > 0
-                ? string(abi.encodePacked(baseURI, _tokenId.toString()))
-                : "";
-    }
-
     function tokenMinted() public view returns (uint256) {
-        return _tokenIdCounter.current();
+        return nextTokenId;
     }
 
     function supportsInterface(
         bytes4 interfaceId
-    )
-        public
-        view
-        override(ERC721, ERC721Enumerable, AccessControl, ERC2981)
-        returns (bool)
-    {
+    ) public view override(ERC721, AccessControl, ERC2981) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 

@@ -7,20 +7,18 @@
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
-
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity 0.8.20;
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
 
     function balanceOf(address owner) external view returns (uint256 balance);
-
-    function decimals() external view returns (uint256);
 
     /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
     function transfer(address dst, uint256 amount) external;
@@ -46,20 +44,14 @@ interface INonStandardERC20 {
     );
 }
 
-contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
+contract RaiseSale is Ownable(msg.sender), Pausable, ReentrancyGuard {
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
-    uint256 public CENTS = 10 ** 6;
-    uint256 public priceInUSD = 5 * CENTS;
-    uint256 public MULTIPLIER = 10 ** 18;
-    address public TREASURY = msg.sender; //replace in prod
-
+    uint256 public rate;
     bool public iswhitelis;
     bytes32 public root;
     uint256 public allowedUserBalance;
-    address public USDT;
-    address public USDC;
-    address public DAI;
+    INonStandardERC20 public usdt;
     uint256 public hardcap;
 
     address[] public participatedUsers;
@@ -73,18 +65,16 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
      * @param _allowedUserBalance: max allowed purchase of usdt per user
      */
     constructor(
-        uint256 _hardcap, //in 10*4
-        uint256 _allowedUserBalance, //in 10*4
-        address _usdtAddress,
-        address _usdcAddress,
-        address _daiAddress,
+        uint256 _rate,
+        address _usdt,
+        uint256 _hardcap,
+        uint256 _allowedUserBalance,
         bytes32 _root
     ) {
+        rate = _rate;
+        usdt = INonStandardERC20(_usdt);
         hardcap = _hardcap;
         allowedUserBalance = _allowedUserBalance;
-        USDT = _usdtAddress;
-        USDC = _usdcAddress;
-        DAI = _daiAddress;
         root = _root;
     }
 
@@ -114,6 +104,14 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
     }
 
     /*
+     * @notice Change Rate
+     * @param _rate: token rate per usdt
+     */
+    function changeRate(uint256 _rate) public onlyOwner {
+        rate = _rate;
+    }
+
+    /*
      * @notice Change Allowed user balance
      * @param _allowedUserBalance: amount allowed per user to purchase tokens in usdt
      */
@@ -131,103 +129,27 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
         return participatedUsers.length;
     }
 
-    function setPriceUSD(uint256 _priceInUSD) public onlyOwner {
-        priceInUSD = _priceInUSD;
-    }
-
-    function setWhitelist(bool _status) external onlyOwner {
-        iswhitelis = _status;
-    }
-
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    function setTreasury(address _treasury) external onlyOwner {
-        TREASURY = _treasury;
-    }
-
-    function getContractBalance() public view returns (uint256) {
-        uint256 totalBal = ((INonStandardERC20(USDT).balanceOf(address(this)) *
-            MULTIPLIER) /
-            10 ** 6 +
-            (INonStandardERC20(USDC).balanceOf(address(this)) * MULTIPLIER) /
-            10 ** 6 +
-            (INonStandardERC20(DAI).balanceOf(address(this)) * MULTIPLIER) /
-            10 ** 18) * CENTS;
-        return totalBal;
-    }
-
     /*
      * @notice Buy Token with USDT
-     * @param _amount: amount of stable with corrosponding decimal
+     * @param _amount: amount of usdt
      */
-    function buyToken(
-        address _purchaseToken,
-        uint256 _amount,
-        bytes32[] memory proof
-    ) external whenNotPaused nonReentrant isWhitelisted(proof) {
+    function buyTokenWithUSDT(
+        uint256 _amount
+    ) external whenNotPaused nonReentrant {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
-        require(
-            _purchaseToken == USDT ||
-                _purchaseToken == USDC ||
-                _purchaseToken == DAI,
-            "Invalid TOKEN"
-        );
 
-        uint256 rate = (priceInUSD *
-            10 ** INonStandardERC20(_purchaseToken).decimals()) / CENTS;
-        uint256 tokensPurchased = ((_amount /
-            10 ** INonStandardERC20(_purchaseToken).decimals()) * MULTIPLIER) /
-            (rate / 10 ** INonStandardERC20(_purchaseToken).decimals());
+        uint256 tokensPurchased = _amount * rate;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
-            (_amount * MULTIPLIER * CENTS) /
-                10 ** INonStandardERC20(_purchaseToken).decimals() +
-                getContractBalance() <=
-                hardcap * MULTIPLIER,
+            _amount + usdt.balanceOf(address(this)) <= hardcap,
             "Hardcap reached"
         );
-
+        // for USDT
         require(
-            userUpdatedBalance *
-                (rate / 10 ** INonStandardERC20(_purchaseToken).decimals()) *
-                CENTS <=
-                allowedUserBalance * MULTIPLIER,
+            userUpdatedBalance / rate <= allowedUserBalance,
             "Exceeded allowance"
         );
-
-        doTransferIn(address(_purchaseToken), msg.sender, _amount);
-        claimable[msg.sender] = userUpdatedBalance;
-        participatedUsers.push(msg.sender);
-        emit ClaimableAmount(msg.sender, tokensPurchased);
-    }
-
-    //testing
-
-    function buyTokenUSDT(
-        uint256 _amount,
-        bytes32[] memory proof
-    ) external whenNotPaused nonReentrant isWhitelisted(proof) {
-        // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
-        uint256 tokensPurchased = (_amount * MULTIPLIER) / priceInUSD;
-        uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
-        require(
-            (_amount * MULTIPLIER) / 10 ** 6 + getContractBalance() <=
-                hardcap * MULTIPLIER,
-            "Hardcap reached"
-        );
-
-        require(
-            userUpdatedBalance * priceInUSD <= allowedUserBalance * MULTIPLIER,
-            "Exceeded allowance"
-        );
-
-        doTransferIn(address(USDT), msg.sender, _amount);
+        doTransferIn(address(usdt), msg.sender, _amount);
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
         emit ClaimableAmount(msg.sender, tokensPurchased);
@@ -341,10 +263,9 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
      * @param _value: usdt value to transfer from contract to owner
      */
     function fundsWithdrawal(
-        address _tokenAddress,
         uint256 _value
     ) external onlyOwner whenPaused nonReentrant {
-        doTransferOut(address(_tokenAddress), TREASURY, _value);
+        doTransferOut(address(usdt), _msgSender(), _value);
     }
 
     /*
@@ -352,10 +273,10 @@ contract RaiseSale is Ownable, Pausable, ReentrancyGuard {
      * @param _tokenAddress: token address to transfer
      * @param _value: token value to transfer from contract to owner
      */
-    function withdrawETH() external onlyOwner nonReentrant whenPaused {
-        require(address(this).balance > 0, "Insufficient Balance");
-        payable(TREASURY).transfer(address(this).balance);
+    function transferAnyERC20Tokens(
+        address _tokenAddress,
+        uint256 _value
+    ) external onlyOwner whenPaused nonReentrant {
+        doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }
-
-    receive() external payable {}
 }
