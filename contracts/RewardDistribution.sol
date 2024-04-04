@@ -49,7 +49,7 @@ contract RewardDistribution is AccessControl {
     uint256 assessmentCost = 2000; // The cost required for assessment.
     mapping(address => Assignment) Assignments; // Mapping from product owner to their assignment.
     address public USDT; // Address of the USDT token.
-    address public Treasury; // Address of the Treasury to collect fees or unused funds.
+    address payable TREASURY; // Address of the TREASURY to collect fees or unused funds.
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
@@ -60,10 +60,10 @@ contract RewardDistribution is AccessControl {
         uint256 rewardAmount
     );
 
-    // Constructor to set initial values for USDT token address and Treasury.
+    // Constructor to set initial values for USDT token address and TREASURY.
     constructor(address _usdt, address _treasury) {
         USDT = _usdt;
-        Treasury = _treasury;
+        TREASURY = payable(_treasury);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -95,11 +95,11 @@ contract RewardDistribution is AccessControl {
         assessmentCost = _newCost;
     }
 
-    // Admin function to update the treasury address.
+    // Admin function to update the TREASURY address.
     function setNewTresury(
         address _newTresury
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        Treasury = _newTresury;
+        TREASURY = payable(_newTresury);
     }
 
     // Admin function to enable or disable reward claims for a product owner.
@@ -211,18 +211,18 @@ contract RewardDistribution is AccessControl {
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
     }
 
-    // Admin function to transfer tokens from the contract to the treasury.
-    function skim(
+    // Admin function to transfer tokens from the contract to the TREASURY.
+    function withdrawDonatedTokens(
         address _tokenAddress,
         uint256 _value
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        doTransferOut(_tokenAddress, Treasury, _value);
+        doTransferOut(_tokenAddress, TREASURY, _value);
     }
 
-    // Admin function to transfer ETH from the contract to the treasury.
-    function skimETH() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    // Admin function to transfer ETH from the contract to the TREASURY.
+    function withdrawDonatedETH() external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(address(this).balance > 0, "Insufficient Balance");
-        payable(Treasury).transfer(address(this).balance);
+        payable(TREASURY).transfer(address(this).balance);
     }
 
     // Function to receive Ether. msg.data must be empty
