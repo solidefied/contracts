@@ -28,7 +28,7 @@ contract Governor is
     AccessControl
 {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    uint256 public nextTokenId;
+    uint256 private _nextTokenId;
     uint256 public TOKEN_SUPPLY;
     address payable TREASURY; //multisig address
     string public baseURI;
@@ -60,7 +60,7 @@ contract Governor is
     }
 
     function mint(address to) external onlyRole(MINTER_ROLE) {
-        uint256 tokenId = nextTokenId++;
+        uint256 tokenId = _nextTokenId++;
         require(tokenId < TOKEN_SUPPLY, "Limit Reached");
         _safeMint(to, tokenId);
     }
@@ -125,11 +125,6 @@ contract Governor is
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
     }
-
-    function tokenMinted() public view returns (uint256) {
-        return nextTokenId;
-    }
-    //  function _update(address to, uint256 tokenId, address auth) internal virtual returns (address)
 
     function _update(
         address to,
