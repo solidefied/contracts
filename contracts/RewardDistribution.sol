@@ -13,6 +13,10 @@ pragma solidity 0.8.20;
 // Importing OpenZeppelin contracts for  Merkle proof verification, and ownership management.
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+// import "./GovernanceNFT.sol";
+// import "./SentimentScore.sol";
 
 // Interface for non-standard ERC20 tokens to handle tokens that do not return a boolean on transfer and transferFrom.
 interface INonStandardERC20 {
@@ -41,34 +45,49 @@ interface INonStandardERC20 {
 contract RewardDistribution is AccessControl {
     // Structure to hold assignment details including governance list, Merkle root, amount, and active status.
     struct Assignment {
-        mapping(address => bool) govList;
-        bytes32 merkleRoot;
+        mapping(uint => bool) govList; // Governor TokenId
+        bytes32 merkleRoot; // merkleRoot is for a tress whose leaf is [Gov TokenID and Claimable Amount]
         uint256 amount;
         bool isActive;
+        uint createdAt;
     }
     uint256 assessmentCost = 2000; // The cost required for assessment.
     mapping(address => Assignment) Assignments; // Mapping from product owner to their assignment.
     address public USDT; // Address of the USDT token.
     address payable TREASURY; // Address of the TREASURY to collect fees or unused funds.
+    address GovernanceNFT;
+    address SentimentScore;
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
-    event MerkleRootAdded(address productOwner, bytes32 merkleRoot);
+    event MerkleRootAdded(address productId, bytes32 merkleRoot);
     event RewardsClaimed(
-        address productOwner,
+        address productId,
         address userAddress,
         uint256 rewardAmount
     );
 
     // Constructor to set initial values for USDT token address and TREASURY.
-    constructor(address _usdt, address _treasury) {
+    constructor(
+        address _usdt,
+        address _treasury,
+        address _governanceNFT,
+        address _sentimentScore
+    ) {
         USDT = _usdt;
         TREASURY = payable(_treasury);
+        GovernanceNFT = _governanceNFT;
+        SentimentScore = _sentimentScore;
+
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     // Function to create an assignment by product owners.
     function createAssignment(uint256 _amount) external {
+        require(
+            Assignments[msg.sender].createdAt != 0,
+            "Assignment already created"
+        );
         require(
             _amount >= assessmentCost * INonStandardERC20(USDT).decimals(),
             "Invalid Amount"
@@ -78,14 +97,29 @@ contract RewardDistribution is AccessControl {
         emit AssignmentCreated(msg.sender, _amount);
     }
 
+    function getAssignment(
+        address _productId
+    ) external view returns (bytes32, uint, bool, uint) {
+        return (
+            Assignments[_productId].merkleRoot,
+            Assignments[_productId].amount,
+            Assignments[_productId].isActive,
+            Assignments[_productId].createdAt
+        );
+    }
+
     // Admin function to set the Merkle root for reward distribution.
     function setMerkleRoot(
-        address _productOwner,
+        address _productId,
         bytes32 _merkleRoot
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        Assignments[_productOwner].merkleRoot = _merkleRoot;
-        Assignments[_productOwner].isActive = true;
-        emit MerkleRootAdded(_productOwner, _merkleRoot);
+        require(
+            Assignments[msg.sender].createdAt != 0,
+            "Assignment doesn't exists"
+        );
+        Assignments[_productId].merkleRoot = _merkleRoot;
+        Assignments[_productId].isActive = true;
+        emit MerkleRootAdded(_productId, _merkleRoot);
     }
 
     // Admin function to update the assessment cost.
@@ -104,40 +138,51 @@ contract RewardDistribution is AccessControl {
 
     // Admin function to enable or disable reward claims for a product owner.
     function setRewardClaim(
-        address _productOwner,
+        address _productId,
         bool _status
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        Assignments[_productOwner].isActive = _status;
+        Assignments[_productId].isActive = _status;
     }
 
     // Function for users to claim their rewards.
     function claimReward(
-        address _productOwner,
+        address _productId,
         bytes32[] calldata proof,
-        uint256 amount
+        uint256 amount,
+        uint _tokenId
     ) external {
         require(
-            Assignments[_productOwner].isActive,
+            IERC721(GovernanceNFT).balanceOf(msg.sender) == 1,
+            "Not Authorized"
+        );
+        require(
+            IERC721(GovernanceNFT).ownerOf(_tokenId) == msg.sender,
+            "Not Authorized"
+        );
+
+        // get the Gov NFT token id owned by caller
+        require(
+            Assignments[_productId].isActive,
             "Reward is not active for this Product"
         );
         require(
-            (Assignments[_productOwner].amount >= amount) &&
+            (Assignments[_productId].amount >= amount) &&
                 (INonStandardERC20(USDT).balanceOf(address(this)) >= amount),
             "Reward Pool is empty"
         );
         require(
-            !(Assignments[_productOwner].govList[msg.sender]),
+            !(Assignments[_productId].govList[_tokenId]),
             "Already claimed"
         );
 
-        bytes32 merkleRoot = Assignments[_productOwner].merkleRoot;
-        _verifyProof(merkleRoot, proof, amount, msg.sender);
+        bytes32 merkleRoot = Assignments[_productId].merkleRoot;
+        _verifyProof(merkleRoot, proof, amount, _tokenId);
 
-        Assignments[_productOwner].govList[msg.sender] = true;
-        Assignments[_productOwner].amount -= amount;
+        Assignments[_productId].govList[_tokenId] = true;
+        Assignments[_productId].amount -= amount;
 
         doTransferOut(USDT, msg.sender, amount);
-        emit RewardsClaimed(_productOwner, msg.sender, amount);
+        emit RewardsClaimed(_productId, msg.sender, amount);
     }
 
     // Private function to verify Merkle proof for claim verification.
@@ -145,9 +190,9 @@ contract RewardDistribution is AccessControl {
         bytes32 _merkleRoot,
         bytes32[] memory proof,
         uint256 amount,
-        address addr
+        uint tokenId
     ) private pure {
-        bytes32 leaf = keccak256(abi.encode(addr, amount));
+        bytes32 leaf = keccak256(abi.encode(tokenId, amount));
         require(MerkleProof.verify(proof, _merkleRoot, leaf), "Invalid proof");
     }
 
