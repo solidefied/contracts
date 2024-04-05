@@ -56,6 +56,7 @@ contract RewardDistribution is AccessControl {
     address payable TREASURY; // Address of the TREASURY to collect fees or unused funds.
     address GovernanceNFT;
     address SentimentScore;
+    uint private fee = 200; //in bps i.e 2%
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
@@ -92,6 +93,7 @@ contract RewardDistribution is AccessControl {
             "Invalid Amount"
         );
         doTransferIn(USDT, msg.sender, _amount);
+        doTransferOut(USDT, TREASURY, (fee * _amount) / 10000);
         Assignments[msg.sender].amount = _amount;
         emit AssignmentCreated(msg.sender, _amount);
     }
@@ -130,6 +132,14 @@ contract RewardDistribution is AccessControl {
         uint256 _newCost
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         assessmentCost = _newCost;
+    }
+
+    function setFee(uint256 _newFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        fee = _newFee;
+    }
+
+    function getFee() external view returns (uint platformfee) {
+        return fee;
     }
 
     // Admin function to update the TREASURY address.
