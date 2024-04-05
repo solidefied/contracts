@@ -49,13 +49,13 @@ contract Governor is
         baseURI = _baseUri;
     }
 
-    function _addProduct(uint _tokenId, address _productId) internal {
+    function _addProduct(uint _tokenId, address _productId) private {
         CompletedProducts[_tokenId].push(_productId);
     }
 
     function _getCompletedProducts(
         uint _tokenId
-    ) internal view returns (address[] memory products) {
+    ) public view returns (address[] memory products) {
         return CompletedProducts[_tokenId];
     }
 
@@ -131,7 +131,7 @@ contract Governor is
         uint256 tokenId,
         address auth
     ) internal override(ERC721, ERC721Enumerable) returns (address) {
-        require(balanceOf(to) == 0, "Cann't have more that one token");
+        require(balanceOf(to) == 0, "Can't have more that one token");
 
         return super._update(to, tokenId, auth);
     }
