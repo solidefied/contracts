@@ -15,13 +15,26 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
-contract Governor is ERC721, ERC721Burnable, ERC2981, AccessControl {
+// user can have one token at a time
+contract Governor is
+    ERC721,
+    ERC721Burnable,
+    ERC721URIStorage,
+    ERC721Enumerable,
+    ERC2981,
+    AccessControl
+{
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     uint256 public nextTokenId;
     uint256 public TOKEN_SUPPLY;
     address payable TREASURY;
     string public baseURI;
+    // address[] Assessments;
+
+    mapping(uint => address[]) CompletedProducts; //token id to product owner
 
     constructor(
         address treasury,
@@ -31,14 +44,31 @@ contract Governor is ERC721, ERC721Burnable, ERC2981, AccessControl {
         TREASURY = payable(treasury);
         _setDefaultRoyalty(TREASURY, _royaltyRate);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        TOKEN_SUPPLY = 250;
+        _grantRole(MINTER_ROLE, msg.sender);
+        TOKEN_SUPPLY = 5;
         baseURI = _baseUri;
+    }
+
+    function _addProduct(uint _tokenId, address _productId) internal {
+        CompletedProducts[_tokenId].push(_productId);
+    }
+
+    function _getCompletedProducts(
+        uint _tokenId
+    ) internal view returns (address[] memory products) {
+        return CompletedProducts[_tokenId];
     }
 
     function mint(address to) external onlyRole(MINTER_ROLE) {
         uint256 tokenId = nextTokenId++;
-        require(tokenId <= TOKEN_SUPPLY, "Limit Reached");
+        require(tokenId < TOKEN_SUPPLY, "Limit Reached");
         _safeMint(to, tokenId);
+    }
+
+    function tokenURI(
+        uint256 tokenId
+    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+        return super.tokenURI(tokenId);
     }
 
     function setDefaultRoyalty(
@@ -96,17 +126,41 @@ contract Governor is ERC721, ERC721Burnable, ERC2981, AccessControl {
         return baseURI;
     }
 
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
-
     function tokenMinted() public view returns (uint256) {
         return nextTokenId;
     }
 
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal override(ERC721, ERC721Enumerable) returns (address) {
+        require(balanceOf(to) <= 1, "Cann't have more that one token");
+
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(
+        address account,
+        uint128 value
+    ) internal override(ERC721, ERC721Enumerable) {
+        super._increaseBalance(account, value);
+    }
+
     function supportsInterface(
         bytes4 interfaceId
-    ) public view override(ERC721, AccessControl, ERC2981) returns (bool) {
+    )
+        public
+        view
+        override(
+            ERC721,
+            AccessControl,
+            ERC721URIStorage,
+            ERC721Enumerable,
+            ERC2981
+        )
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
 

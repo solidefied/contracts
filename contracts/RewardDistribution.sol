@@ -13,10 +13,9 @@ pragma solidity 0.8.20;
 // Importing OpenZeppelin contracts for  Merkle proof verification, and ownership management.
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-// import "./GovernanceNFT.sol";
-// import "./SentimentScore.sol";
+import "./IGovernor.sol";
+import "./ISentimentScore.sol";
 
 // Interface for non-standard ERC20 tokens to handle tokens that do not return a boolean on transfer and transferFrom.
 interface INonStandardERC20 {
@@ -109,16 +108,20 @@ contract RewardDistribution is AccessControl {
     }
 
     // Admin function to set the Merkle root for reward distribution.
-    function setMerkleRoot(
+    //This will mint scoreNFT
+    function mintSentimentScoreNFT(
         address _productId,
-        bytes32 _merkleRoot
+        bytes32 _merkleRoot,
+        string memory _scoreNftUri
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        ISentimentScore scoreNFT = ISentimentScore(SentimentScore);
         require(
             Assignments[msg.sender].createdAt != 0,
             "Assignment doesn't exists"
         );
         Assignments[_productId].merkleRoot = _merkleRoot;
         Assignments[_productId].isActive = true;
+        scoreNFT.mint(_productId, _scoreNftUri);
         emit MerkleRootAdded(_productId, _merkleRoot);
     }
 
@@ -151,14 +154,9 @@ contract RewardDistribution is AccessControl {
         uint256 amount,
         uint _tokenId
     ) external {
-        require(
-            IERC721(GovernanceNFT).balanceOf(msg.sender) == 1,
-            "Not Authorized"
-        );
-        require(
-            IERC721(GovernanceNFT).ownerOf(_tokenId) == msg.sender,
-            "Not Authorized"
-        );
+        IGovernor govNFT = IGovernor(GovernanceNFT);
+        require(govNFT.balanceOf(msg.sender) == 1, "Not Authorized");
+        require(govNFT.ownerOf(_tokenId) == msg.sender, "Not Authorized");
 
         // get the Gov NFT token id owned by caller
         require(
@@ -180,6 +178,7 @@ contract RewardDistribution is AccessControl {
 
         Assignments[_productId].govList[_tokenId] = true;
         Assignments[_productId].amount -= amount;
+        govNFT._addProduct(_tokenId, _productId);
 
         doTransferOut(USDT, msg.sender, amount);
         emit RewardsClaimed(_productId, msg.sender, amount);
