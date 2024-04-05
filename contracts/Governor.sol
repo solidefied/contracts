@@ -30,7 +30,7 @@ contract Governor is
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     uint256 public nextTokenId;
     uint256 public TOKEN_SUPPLY;
-    address payable TREASURY;
+    address payable TREASURY; //multisig address
     string public baseURI;
     // address[] Assessments;
 
@@ -129,13 +129,14 @@ contract Governor is
     function tokenMinted() public view returns (uint256) {
         return nextTokenId;
     }
+    //  function _update(address to, uint256 tokenId, address auth) internal virtual returns (address)
 
     function _update(
         address to,
         uint256 tokenId,
         address auth
     ) internal override(ERC721, ERC721Enumerable) returns (address) {
-        require(balanceOf(to) <= 1, "Cann't have more that one token");
+        require(balanceOf(to) == 0, "Cann't have more that one token");
 
         return super._update(to, tokenId, auth);
     }
