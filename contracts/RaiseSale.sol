@@ -134,8 +134,9 @@ contract RaiseSale is Ownable(msg.sender), Pausable, ReentrancyGuard {
      * @param _amount: amount of usdt
      */
     function buyTokenWithUSDT(
-        uint256 _amount
-    ) external whenNotPaused nonReentrant {
+        uint256 _amount,
+        bytes32[] memory proof
+    ) external whenNotPaused nonReentrant isWhitelisted(proof) {
         // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
 
         uint256 tokensPurchased = _amount * rate;
