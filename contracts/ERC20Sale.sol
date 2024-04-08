@@ -9,27 +9,19 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity 0.8.20;
-
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
 
     function balanceOf(address owner) external view returns (uint256 balance);
 
-    ///
-    /// !!!!!!!!!!!!!!
     /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
-    /// !!!!!!!!!!!!!!
-    ///
     function transfer(address dst, uint256 amount) external;
 
-    ///
-    /// !!!!!!!!!!!!!!
     /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
-    /// !!!!!!!!!!!!!!
-    ///
     function transferFrom(address src, address dst, uint256 amount) external;
 
     function approve(
@@ -50,92 +42,181 @@ interface INonStandardERC20 {
     );
 }
 
-contract ERC20Sale is AccessControl {
+contract ERC20Sale is AccessControl, ReentrancyGuard {
+    bytes32 public constant PRODUCT_OWNER = keccak256("PRODUCT_OWNER");
+
     event ClaimableAmount(address _user, uint256 _claimableAmount);
-    uint256 public rate; //rate = (1 / 1 token price in usd) * (10**12)
-    bool public presaleOver;
-    IERC20 public usdt; //0xc2132d05d31c914a87c6611c10748aeb04b58e8f
-    mapping(address => uint256) public claimable;
-    uint256 public hardcap; //  hardcap = usd value * (10**6)
-    uint256 public totalRaised;
-    uint256 public totalTokenPurchase;
+
+    uint256 public rate;
+    bool public isPrivate; //Closed Sale: true, OpenSale : False // Default is OpenSale
+    bytes32 public merkleRoot;
+    uint256 public allowedUserBalance;
+    INonStandardERC20 public usdt;
+    uint256 public hardcap;
+    uint256 public softcap;
+    bool public isSaleLive;
 
     address[] public participatedUsers;
+    mapping(address => uint256) public claimable;
+    address solidefiedAdmin;
 
-    constructor(uint256 _rate, address _usdt, uint256 _hardcap) {
+    /*
+     * @notice Initialize the contract
+     * @param _rate: rate of token
+     * @param _usdt: usdt token address
+     * @param _hardcap: amount to raise
+     * @param _allowedUserBalance: max allowed purchase of usdt per user
+     * _root = 0 for Open Sale,
+     *For Open sale, isPrivate = False, For Closed Sale isPrivate= True
+     */
+    constructor(
+        uint256 _rate,
+        address _usdt,
+        uint256 _hardcap,
+        uint256 _softcap,
+        uint256 _allowedUserBalance,
+        bytes32 _root,
+        bool _isPrivate,
+        address _solidefiedAdmin
+    ) {
+        require(softcap < hardcap, "Softcap should be less than hardcap");
         rate = _rate;
-        usdt = IERC20(_usdt);
-        presaleOver = true;
+        usdt = INonStandardERC20(_usdt);
         hardcap = _hardcap;
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        softcap = _softcap;
+        allowedUserBalance = _allowedUserBalance;
+        merkleRoot = _root;
+        isPrivate = _isPrivate;
+        solidefiedAdmin = _solidefiedAdmin;
+        _grantRole(DEFAULT_ADMIN_ROLE, solidefiedAdmin);
+        _grantRole(PRODUCT_OWNER, msg.sender);
     }
 
-    modifier isPresaleOver() {
-        require(presaleOver == true, "The  Sale is not over yet");
-        _;
+    function isValid(
+        bytes32[] memory proof,
+        bytes32 leaf
+    ) public view returns (bool) {
+        return MerkleProof.verify(proof, merkleRoot, leaf);
     }
 
-    function changeHardCap(
-        uint256 _hardcap
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function startSale() external onlyRole(PRODUCT_OWNER) returns (bool) {
+        require(!isSaleLive, "Sale is already Live");
+        isSaleLive = true;
+        return isSaleLive;
+    }
+
+    function endSale() external onlyRole(PRODUCT_OWNER) returns (bool) {
+        require(isSaleLive, "Sale is already ended");
+        isSaleLive = false;
+        return isSaleLive;
+    }
+
+    /*
+     * @notice Change Hardcap
+     * @param _hardcap: amount in usdt
+     */
+    function changeHardcap(uint256 _hardcap) public onlyRole(PRODUCT_OWNER) {
+        //Product Owner can not change this when the sale is live.
+        require(!isSaleLive, "Sale is Live");
+        require(softcap < _hardcap, "Softcap should be less than hardcap");
         hardcap = _hardcap;
     }
 
-    function changeRate(uint256 _rate) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function changeSoftcap(uint256 _softcap) public onlyRole(PRODUCT_OWNER) {
+        //Product Owner can not change this when the sale is live.
+        require(!isSaleLive, "Sale is Live");
+        require(_softcap < hardcap, "Softcap should be less than hardcap");
+        softcap = _softcap;
+    }
+
+    /*
+     * @notice Change Rate
+     * @param _rate: token rate per usdt
+     */
+    function changeRate(uint256 _rate) public onlyRole(PRODUCT_OWNER) {
+        //Product Owner can not change this when the sale is live.
+        require(!isSaleLive, "Sale is Live");
         rate = _rate;
     }
 
+    /*
+     * @notice Change Allowed user balance
+     * @param _allowedUserBalance: amount allowed per user to purchase tokens in usdt
+     */
+    function changeAllowedUserBalance(
+        uint256 _allowedUserBalance
+    ) public onlyRole(PRODUCT_OWNER) {
+        //Product Owner can not change this when the sale is live.
+        require(!isSaleLive, "Sale is Live");
+        allowedUserBalance = _allowedUserBalance;
+    }
+
+    /*
+     * @notice get total number of participated user
+     * @return no of participated user
+     */
     function getTotalParticipatedUser() public view returns (uint256) {
         return participatedUsers.length;
     }
 
-    function endPresale() external onlyRole(DEFAULT_ADMIN_ROLE) returns (bool) {
-        presaleOver = true;
-        return presaleOver;
+    /*
+     * @notice Buy Token with USDT
+     * @param _amount: amount of usdt
+     */
+    function buyInOpenSale(uint256 _amount) external nonReentrant {
+        require(isSaleLive, "Sale is not live");
+        require(!isPrivate, "Restricted Sale");
+        _buy(_amount);
     }
 
-    function startPresale()
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        returns (bool)
-    {
-        presaleOver = false;
-        return presaleOver;
+    function buyInClosedSale(
+        uint256 _amount,
+        bytes32[] memory proof
+    ) external nonReentrant {
+        require(isSaleLive, "Sale is not live");
+        isValid(proof, keccak256(abi.encodePacked(msg.sender)));
+        _buy(_amount);
     }
 
-    function buyTokenWithUSDT(uint256 _amount) external {
-        // user enter amount of ether which is then transfered into the smart contract and tokens to be given is saved in the mapping
-        require(presaleOver == false, "Sale  is over");
+    function _buy(uint256 _amount) private {
         uint256 tokensPurchased = _amount * rate;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
-            _amount + (usdt.balanceOf(address(this))) <= hardcap,
+            _amount + usdt.balanceOf(address(this)) <= hardcap,
             "Hardcap reached"
         );
         // for USDT
-        doTransferIn(address(usdt), msg.sender, _amount);
+        require(
+            userUpdatedBalance / rate <= allowedUserBalance,
+            "Exceeded allowance"
+        );
         claimable[msg.sender] = userUpdatedBalance;
         participatedUsers.push(msg.sender);
-        totalRaised = totalRaised + _amount;
-        totalTokenPurchase = totalTokenPurchase + tokensPurchased;
+        doTransferIn(address(usdt), msg.sender, _amount);
+
         emit ClaimableAmount(msg.sender, tokensPurchased);
     }
 
+    /*
+     * @notice get user list
+     * @return userAddress: user address list
+     * @return amount : user wise claimable amount list
+     */
     function getUsersList(
-        uint startIndex,
-        uint endIndex
+        uint256 startIndex,
+        uint256 endIndex
     )
         external
         view
-        returns (address[] memory userAddress, uint[] memory amount)
+        returns (address[] memory userAddress, uint256[] memory amount)
     {
-        uint length = endIndex - startIndex;
+        uint256 length = endIndex - startIndex;
         address[] memory _userAddress = new address[](length);
-        uint[] memory _amount = new uint[](length);
+        uint256[] memory _amount = new uint256[](length);
 
-        for (uint i = startIndex; i < endIndex; i++) {
+        for (uint256 i = startIndex; i < endIndex; i++) {
             address user = participatedUsers[i];
-            uint listIndex = i - startIndex;
+            uint256 listIndex = i - startIndex;
             _userAddress[listIndex] = user;
             _amount[listIndex] = claimable[user];
         }
@@ -143,6 +224,12 @@ contract ERC20Sale is AccessControl {
         return (_userAddress, _amount);
     }
 
+    /*
+     * @notice do transfer in - tranfer token to contract
+     * @param tokenAddress: token address to transfer in contract
+     * @param from : user address from where to transfer token to contract
+     * @param amount : amount to trasnfer
+     */
     function doTransferIn(
         address tokenAddress,
         address from,
@@ -154,6 +241,7 @@ contract ERC20Sale is AccessControl {
         );
         _token.transferFrom(from, address(this), amount);
         bool success;
+
         assembly {
             switch returndatasize()
             case 0 {
@@ -179,6 +267,12 @@ contract ERC20Sale is AccessControl {
         return balanceAfter - balanceBefore; // underflow already checked above, just subtract
     }
 
+    /*
+     * @notice do transfer out - tranfer token from contract
+     * @param tokenAddress: token address to transfer from contract
+     * @param to : user address to where transfer token from contract
+     * @param amount : amount to trasnfer
+     */
     function doTransferOut(
         address tokenAddress,
         address to,
@@ -206,16 +300,25 @@ contract ERC20Sale is AccessControl {
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
     }
 
+    /*
+     * @notice funds withdraw
+     * @param _value: usdt value to transfer from contract to owner
+     */
     function fundsWithdrawal(
         uint256 _value
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) isPresaleOver {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         doTransferOut(address(usdt), _msgSender(), _value);
     }
 
+    /*
+     * @notice funds withdraw
+     * @param _tokenAddress: token address to transfer
+     * @param _value: token value to transfer from contract to owner
+     */
     function transferAnyERC20Tokens(
         address _tokenAddress,
         uint256 _value
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         doTransferOut(address(_tokenAddress), _msgSender(), _value);
     }
 }
