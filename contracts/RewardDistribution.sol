@@ -92,9 +92,11 @@ contract RewardDistribution is AccessControl {
             _amount >= assessmentCost * (10 ** INonStandardERC20(USDT).decimals()),
             "Invalid Amount"
         );
-        doTransferIn(USDT, msg.sender, _amount);
-        doTransferOut(USDT, TREASURY, (fee * _amount) / 10000);
-        Assignments[msg.sender].amount = _amount;
+
+        uint256 feeDeduction = (fee * _amount) / 10000;
+        doTransferOut(USDT, TREASURY, feeDeduction);
+        doTransferIn(USDT, msg.sender, _amount - feeDeduction);
+        Assignments[msg.sender].amount =  _amount - feeDeduction;
         Assignments[msg.sender].createdAt = block.timestamp;
         emit AssignmentCreated(msg.sender, _amount);
     }
