@@ -10,7 +10,7 @@ interface ISentimentScore {
      * @param to Address to mint the token to.
      * @param uri URI of the token metadata.
      */
-    function mint(address to, string memory uri) external;
+    function safeMint(address to, string memory uri) external;
 
     /**
      * @dev Get the token URI for a given token ID.

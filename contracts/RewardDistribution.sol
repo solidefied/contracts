@@ -123,7 +123,7 @@ contract RewardDistribution is AccessControl {
         );
         Assignments[_productId].merkleRoot = _merkleRoot;
         Assignments[_productId].isActive = true;
-        scoreNFT.mint(_productId, _scoreNftUri);
+        scoreNFT.safeMint(_productId, _scoreNftUri);
         emit MerkleRootAdded(_productId, _merkleRoot);
     }
 
