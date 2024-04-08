@@ -57,6 +57,7 @@ contract RewardDistribution is AccessControl {
     address GovernanceNFT;
     address SentimentScore;
     uint private fee = 200; //in bps i.e 2%
+    uint totalfee;
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
@@ -85,16 +86,19 @@ contract RewardDistribution is AccessControl {
     // Function to create an assignment by product owners.
     function createAssignment(uint256 _amount) external {
         require(
-            Assignments[msg.sender].createdAt != 0,
+            Assignments[msg.sender].createdAt == 0,
             "Assignment already created"
         );
         require(
-            _amount >= assessmentCost * INonStandardERC20(USDT).decimals(),
+            _amount >=
+                assessmentCost * 10 ** INonStandardERC20(USDT).decimals(),
             "Invalid Amount"
         );
-        doTransferIn(USDT, msg.sender, _amount);
+
         doTransferOut(USDT, TREASURY, (fee * _amount) / 10000);
-        Assignments[msg.sender].amount = _amount;
+        doTransferIn(USDT, msg.sender, _amount - fee);
+        Assignments[msg.sender].amount = _amount - fee;
+        totalfee += fee;
         emit AssignmentCreated(msg.sender, _amount);
     }
 
@@ -118,7 +122,7 @@ contract RewardDistribution is AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         ISentimentScore scoreNFT = ISentimentScore(SentimentScore);
         require(
-            Assignments[msg.sender].createdAt != 0,
+            Assignments[_productId].createdAt != 0,
             "Assignment doesn't exists"
         );
         Assignments[_productId].merkleRoot = _merkleRoot;
