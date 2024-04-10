@@ -163,7 +163,7 @@ contract ERC721Sale is AccessControl, ReentrancyGuard {
         bytes32[] memory proof
     ) external nonReentrant {
         require(isSaleLive, "Sale is not live");
-        isValid(proof, keccak256(abi.encodePacked(msg.sender)));
+        require(isValid(proof, keccak256(abi.encodePacked(msg.sender))),"Address isn't listed for sale");
         _buy(uri);
     }
 
