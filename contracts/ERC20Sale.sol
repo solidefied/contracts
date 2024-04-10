@@ -118,7 +118,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     function changeHardcap(uint256 _hardcap) public onlyRole(PRODUCT_OWNER) {
         //Product Owner can not change this when the sale is live.
         require(!isSaleLive, "Sale is Live");
-        require(softcap < _hardcap, "Softcap should be less than hardcap");
+        require(softcap < _hardcap, "hardcap should be greater than hardcap");
         hardcap = _hardcap;
     }
 
@@ -174,7 +174,10 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         bytes32[] memory proof
     ) external nonReentrant {
         require(isSaleLive, "Sale is not live");
-        isValid(proof, keccak256(abi.encodePacked(msg.sender)));
+        require(
+            isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+            "Unauthorized"
+        );
         _buy(_amount);
     }
 
