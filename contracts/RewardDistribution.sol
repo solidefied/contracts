@@ -57,6 +57,7 @@ contract RewardDistribution is AccessControl {
     address GovernanceNFT;
     address SentimentScore;
     uint private fee = 200; //in bps i.e 2%
+    uint totalfee;
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
@@ -97,7 +98,8 @@ contract RewardDistribution is AccessControl {
         doTransferOut(USDT, TREASURY, feeDeduction);
         doTransferIn(USDT, msg.sender, _amount - feeDeduction);
         Assignments[msg.sender].amount =  _amount - feeDeduction;
-        Assignments[msg.sender].createdAt = block.timestamp;
+        Assignments[msg.sender].createdAt = block.timestamp;      
+        totalfee += fee;
         emit AssignmentCreated(msg.sender, _amount);
     }
 
