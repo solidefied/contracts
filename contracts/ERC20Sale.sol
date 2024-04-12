@@ -193,8 +193,10 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
             userUpdatedBalance / rate <= allowedUserBalance,
             "Exceeded allowance"
         );
+        if (claimable[msg.sender] == 0) {
+            participatedUsers.push(msg.sender);
+        }
         claimable[msg.sender] = userUpdatedBalance;
-        participatedUsers.push(msg.sender);
         doTransferIn(address(usdt), msg.sender, _amount);
 
         emit ClaimableAmount(msg.sender, tokensPurchased);
