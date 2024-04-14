@@ -13,7 +13,7 @@ pragma solidity 0.8.20;
 // Importing OpenZeppelin contracts for  Merkle proof verification, and ownership management.
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./IGovernor.sol";
 import "./ISentimentScore.sol";
 
@@ -41,23 +41,32 @@ interface INonStandardERC20 {
 }
 
 // Contract for distributing rewards, extends ERC20 token functionality and ownership features.
-contract RewardDistribution is AccessControl {
+contract RewardDistribution is AccessControl, ReentrancyGuard {
     // Structure to hold assignment details including governance list, Merkle root, amount, and active status.
     struct Assignment {
-        mapping(uint => bool) govList; // Governor TokenId
+        mapping(uint => bool) claimed; // Governor TokenId
         bytes32 merkleRoot; // merkleRoot is for a tress whose leaf is [Gov TokenID and Claimable Amount]
         uint256 amount;
         bool isActive;
         uint createdAt;
     }
-    uint256 assessmentCost = 2000; // The cost required for assessment.
+
     mapping(address => Assignment) Assignments; // Mapping from product owner to their assignment.
-    address public USDT; // Address of the USDT token.
-    address payable TREASURY; // Address of the TREASURY to collect fees or unused funds.
-    address GovernanceNFT;
-    address SentimentScore;
+    uint256 assessmentCost = 2000; // The cost required for assessment.
+    address public immutable USDT; // Address of the USDT token.
+    address payable treasury; // Address of the treasury to collect fees or unused funds.
+    address governanceNFT;
+    address sentimentScore;
+
     uint private fee = 200; //in bps i.e 2%
     uint totalfee;
+
+    mapping(uint => uint256) public lastClaimedRewardPerToken;
+    uint256 public totalRewardPerToken;
+    uint256 public totalDistributedRewards;
+
+    // uint public cumulativeRewards;
+    // uint public rewardPerTokenId;
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
@@ -67,18 +76,31 @@ contract RewardDistribution is AccessControl {
         address userAddress,
         uint256 rewardAmount
     );
+    event DividendDistributed(uint256 amount);
+    event DividendClaimed(uint tokenId, uint256 amount);
 
-    // Constructor to set initial values for USDT token address and TREASURY.
+    // Constructor to set initial values for USDT token address and treasury.
     constructor(
         address _usdt,
         address _treasury,
         address _governanceNFT,
         address _sentimentScore
     ) {
+        require(_usdt != address(0), "USDT address cannot be zero");
+        require(_treasury != address(0), "Treasury address cannot be zero");
+        require(
+            _governanceNFT != address(0),
+            "GovernanceNFT address cannot be zero"
+        );
+        require(
+            _sentimentScore != address(0),
+            "SentimentScore address cannot be zero"
+        );
+
         USDT = _usdt;
-        TREASURY = payable(_treasury);
-        GovernanceNFT = _governanceNFT;
-        SentimentScore = _sentimentScore;
+        treasury = payable(_treasury);
+        governanceNFT = _governanceNFT;
+        sentimentScore = _sentimentScore;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -95,11 +117,43 @@ contract RewardDistribution is AccessControl {
             "Invalid Amount"
         );
 
-        doTransferOut(USDT, TREASURY, (fee * _amount) / 10000);
+        doTransferOut(USDT, treasury, (fee * _amount) / 10000);
         doTransferIn(USDT, msg.sender, _amount - fee);
         Assignments[msg.sender].amount = _amount - fee;
         totalfee += fee;
         emit AssignmentCreated(msg.sender, _amount);
+    }
+
+    function distributeDividends(
+        uint256 _amount
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_amount > 0, "Amount must be positive");
+        doTransferIn(USDT, msg.sender, _amount);
+
+        uint256 totalTokens = IGovernor(governanceNFT).totalSupply();
+        if (totalTokens > 0) {
+            uint256 rewardPerTokenIncrease = _amount / totalTokens;
+            totalRewardPerToken += rewardPerTokenIncrease;
+            totalDistributedRewards += _amount;
+        }
+
+        emit DividendDistributed(_amount);
+    }
+
+    function claimDividend(uint _tokenId) external nonReentrant {
+        require(
+            IGovernor(governanceNFT).ownerOf(_tokenId) == msg.sender,
+            "Caller is not the token owner"
+        );
+        uint256 lastClaimed = lastClaimedRewardPerToken[_tokenId];
+        uint256 claimableReward = totalRewardPerToken - lastClaimed;
+
+        require(claimableReward > 0, "No reward available");
+
+        lastClaimedRewardPerToken[_tokenId] = totalRewardPerToken;
+        doTransferOut(USDT, msg.sender, claimableReward);
+
+        emit DividendClaimed(_tokenId, claimableReward);
     }
 
     function getAssignment(
@@ -120,7 +174,7 @@ contract RewardDistribution is AccessControl {
         bytes32 _merkleRoot,
         string memory _scoreNftUri
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        ISentimentScore scoreNFT = ISentimentScore(SentimentScore);
+        ISentimentScore scoreNFT = ISentimentScore(sentimentScore);
         require(
             Assignments[_productId].createdAt != 0,
             "Assignment doesn't exists"
@@ -146,11 +200,11 @@ contract RewardDistribution is AccessControl {
         return fee;
     }
 
-    // Admin function to update the TREASURY address.
+    // Admin function to update the treasury address.
     function setNewTresury(
         address _newTresury
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        TREASURY = payable(_newTresury);
+        treasury = payable(_newTresury);
     }
 
     // Admin function to enable or disable reward claims for a product owner.
@@ -168,7 +222,7 @@ contract RewardDistribution is AccessControl {
         uint256 amount,
         uint _tokenId
     ) external {
-        IGovernor govNFT = IGovernor(GovernanceNFT);
+        IGovernor govNFT = IGovernor(governanceNFT);
         require(govNFT.balanceOf(msg.sender) == 1, "Not Authorized");
         require(govNFT.ownerOf(_tokenId) == msg.sender, "Not Authorized");
 
@@ -183,14 +237,14 @@ contract RewardDistribution is AccessControl {
             "Reward Pool is empty"
         );
         require(
-            !(Assignments[_productId].govList[_tokenId]),
+            !(Assignments[_productId].claimed[_tokenId]),
             "Already claimed"
         );
 
         bytes32 merkleRoot = Assignments[_productId].merkleRoot;
         _verifyProof(merkleRoot, proof, amount, _tokenId);
 
-        Assignments[_productId].govList[_tokenId] = true;
+        Assignments[_productId].claimed[_tokenId] = true;
         Assignments[_productId].amount -= amount;
         govNFT._addProduct(_tokenId, _productId);
 
@@ -269,18 +323,18 @@ contract RewardDistribution is AccessControl {
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
     }
 
-    // Admin function to transfer tokens from the contract to the TREASURY.
+    // Admin function to transfer tokens from the contract to the treasury.
     function withdrawDonatedTokens(
         address _tokenAddress,
         uint256 _value
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        doTransferOut(_tokenAddress, TREASURY, _value);
+        doTransferOut(_tokenAddress, treasury, _value);
     }
 
-    // Admin function to transfer ETH from the contract to the TREASURY.
+    // Admin function to transfer ETH from the contract to the treasury.
     function withdrawDonatedETH() external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(address(this).balance > 0, "Insufficient Balance");
-        payable(TREASURY).transfer(address(this).balance);
+        payable(treasury).transfer(address(this).balance);
     }
 
     // Function to receive Ether. msg.data must be empty
