@@ -242,7 +242,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         uint _tokenId
     ) external nonReentrant {
         IGovernor govNFT = IGovernor(governanceNFT);
-        require(govNFT.balanceOf(msg.sender) >= 1, "Not Authorized");
+        require(govNFT.balanceOf(msg.sender) == 1, "Not Authorized");
         require(govNFT.ownerOf(_tokenId) == msg.sender, "Not Authorized");
 
         // get the Gov NFT token id owned by caller
