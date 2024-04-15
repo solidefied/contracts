@@ -10,222 +10,263 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface INonStandardERC20 {
-    function totalSupply() external view returns (uint256);
+// user can have one token at a time
+contract Governor is
+    ERC721,
+    ERC721Burnable,
+    ERC721URIStorage,
+    ERC721Enumerable,
+    ERC2981,
+    AccessControl,
+    ReentrancyGuard
+{
+    bytes32 public constant PRODUCT_OWNER = keccak256("PRODUCT_OWNER");
+    uint256 private _nextTokenId;
+    uint256 public TOKEN_SUPPLY;
+    address payable tresury =
+        payable(0xEcE27420796b3C7fd55Bd7eA2d2bEc403e4c344c); //multisig address
+    string public baseURI;
+    mapping(uint => address[]) CompletedProducts; //token id to product owner
 
-    function balanceOf(address owner) external view returns (uint256 balance);
+    // Sale parameters
 
-    /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
-    function transfer(address dst, uint256 amount) external;
+    IERC20 public paymentToken =
+        IERC20(0xEcE27420796b3C7fd55Bd7eA2d2bEc403e4c344c);
+    uint256 public rate = 1 * 10 ** 18;
+    uint256 public softcap = 3;
+    uint256 public hardcap = 5;
+    bool public isSaleActive = false;
+    bytes32 public merkleRoot;
+    uint256 public mintCapPerWallet = 1;
+    bool public isPrivate = false; //Closed Sale: true, OpenSale : False // Default is OpenSale
+    address solidefiedAdmin = 0xEcE27420796b3C7fd55Bd7eA2d2bEc403e4c344c;
+    address[] public participatedUsers;
 
-    /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
-    function transferFrom(address src, address dst, uint256 amount) external;
+    event SaleStarted();
+    event SaleEnded();
+    event TokensPurchased(address buyer, uint256 amount);
 
-    function approve(
-        address spender,
-        uint256 amount
-    ) external returns (bool success);
-
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256 remaining);
-
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 amount
-    );
-}
-
-interface IERC721 {
-    function mint(address _receiver) external;
-}
-
-contract GovernanceSale is ReentrancyGuard, Ownable(msg.sender), Pausable {
-    bool public iswhitelis;
-    uint256 public CENTS = 10 ** 4;
-    uint256 public priceInETH = 1.5 ether;
-    uint256 public priceInUSD = 2000 * CENTS;
-    address public govAddress;
-    address public TREASURY = msg.sender; //replace in prod
-    address public USDT;
-    address public USDC;
-    address public DAI;
-    bytes32 public root;
-
-    // address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7; // 6 decimals
-    // address public USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // 6 decimals
-    // address public DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F; // 18 decimals
-
-    constructor(
-        address _govAddress,
-        address _usdtAddress,
-        address _usdcAddress,
-        address _daiAddress,
-        bytes32 _root
-    ) {
-        govAddress = _govAddress;
-        USDT = _usdtAddress;
-        USDC = _usdcAddress;
-        DAI = _daiAddress;
-        root = _root;
+    constructor(string memory _baseUri) ERC721("Solidefied Governor", "POWER") {
+        _setDefaultRoyalty(tresury, 200); // can change later
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PRODUCT_OWNER, msg.sender);
+        TOKEN_SUPPLY = 5;
+        baseURI = _baseUri;
     }
 
-    modifier isWhitelisted(bytes32[] memory proof) {
-        if (iswhitelis) {
-            require(
-                isValid(proof, keccak256(abi.encodePacked(msg.sender))),
-                "Unauthorized"
-            );
-        }
-        _;
+    function _addProduct(uint _tokenId, address _productId) private {
+        CompletedProducts[_tokenId].push(_productId);
+    }
+
+    function _getCompletedProducts(
+        uint _tokenId
+    ) public view returns (address[] memory products) {
+        return CompletedProducts[_tokenId];
+    }
+
+    function _mint(address to) private {
+        uint256 tokenId = _nextTokenId++;
+        require(tokenId < TOKEN_SUPPLY, "Limit Reached");
+        _safeMint(to, tokenId);
+    }
+
+    function tokenURI(
+        uint256 tokenId
+    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+        return super.tokenURI(tokenId);
+    }
+
+    function setDefaultRoyalty(
+        address _receiver,
+        uint96 _royaltyRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setDefaultRoyalty(_receiver, _royaltyRate);
+    }
+
+    function setTokenSupply(
+        uint256 _tokenSupply
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        TOKEN_SUPPLY = _tokenSupply;
+    }
+
+    function setBaseURI(
+        string memory _uri
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        baseURI = _uri;
+    }
+
+    function setTresury(
+        address _tresury
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        tresury = payable(_tresury);
+    }
+
+    function setProductOwnerRole(
+        address _user
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(PRODUCT_OWNER, _user);
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return baseURI;
+    }
+
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal override(ERC721, ERC721Enumerable) returns (address) {
+        require(balanceOf(to) == 0, "Can't have more that one token");
+
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(
+        address account,
+        uint128 value
+    ) internal override(ERC721, ERC721Enumerable) {
+        super._increaseBalance(account, value);
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        override(
+            ERC721,
+            AccessControl,
+            ERC721URIStorage,
+            ERC721Enumerable,
+            ERC2981
+        )
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    // Sale functions
+
+    function buyInOpenSale() external nonReentrant {
+        require(isSaleActive, "Sale is not live");
+        require(!isPrivate, "Restricted Sale");
+        _buy();
+    }
+
+    function buyInClosedSale(bytes32[] memory proof) external nonReentrant {
+        require(isSaleActive, "Sale is not live");
+        require(
+            isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+            "Unauthorized"
+        );
+        _buy();
+    }
+
+    function _buy() private {
+        participatedUsers.push(msg.sender);
+        IERC20(paymentToken).transferFrom(msg.sender, address(this), rate);
+        _mint(msg.sender);
+    }
+
+    function startSale() external onlyRole(PRODUCT_OWNER) {
+        require(!isSaleActive, "Sale already active");
+        isSaleActive = true;
+        emit SaleStarted();
+    }
+
+    function endSale() external onlyRole(PRODUCT_OWNER) {
+        require(isSaleActive, "Sale not active");
+        isSaleActive = false;
+        emit SaleEnded();
     }
 
     function isValid(
         bytes32[] memory proof,
         bytes32 leaf
     ) public view returns (bool) {
-        return MerkleProof.verify(proof, root, leaf);
+        return MerkleProof.verify(proof, merkleRoot, leaf);
     }
 
-    function setTreasury(address _treasury) external onlyOwner {
-        TREASURY = _treasury;
+    function changeSoftcap(uint256 _softcap) public onlyRole(PRODUCT_OWNER) {
+        //Product Owner can not change this when the sale is live.
+        require(!isSaleActive, "Sale is Live");
+        // require(_softcap < totalSupply, "Softcap should be less than total Supply");
+        softcap = _softcap;
     }
 
-    //Only Testing
-    function setMerkleRoot(bytes32 _root) external onlyOwner {
-        root = _root;
+    /*
+     * @notice Change Rate
+     * @param _rate: token rate per usdt
+     */
+    function changeRate(uint256 _rate) public onlyRole(PRODUCT_OWNER) {
+        //Product Owner can not change this when the sale is live.
+        require(!isSaleActive, "Sale is Live");
+        rate = _rate;
     }
 
-    function setPriceETH(uint256 _priceInWei) public onlyOwner {
-        priceInETH = _priceInWei;
+    /*
+     * @notice Change Allowed user balance
+     * @param _allowedUserBalance: amount allowed per user to purchase tokens in usdt
+     */
+    function changeMintCapPerWallet(
+        uint256 _mintCapPerWallet
+    ) public onlyRole(PRODUCT_OWNER) {
+        //Product Owner can not change this when the sale is live.
+        require(!isSaleActive, "Sale is Live");
+        mintCapPerWallet = _mintCapPerWallet;
     }
 
-    function setPriceUSD(uint256 _priceInUSD) public onlyOwner {
-        priceInUSD = _priceInUSD;
+    /*
+     * @notice get total number of participated user
+     * @return no of participated user
+     */
+    function getTotalParticipatedUser() public view returns (uint256) {
+        return participatedUsers.length;
     }
 
-    function setWhitelist(bool _status) external onlyOwner {
-        iswhitelis = _status;
-    }
+    function getUsersList(
+        uint256 startIndex,
+        uint256 endIndex
+    ) external view returns (address[] memory userAddress) {
+        uint256 length = endIndex - startIndex;
+        address[] memory _userAddress = new address[](length);
 
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    function buyNFTWithToken(
-        address _purchaseToken,
-        bytes32[] memory proof
-    ) external whenNotPaused nonReentrant isWhitelisted(proof) {
-        require(
-            _purchaseToken == USDT ||
-                _purchaseToken == USDC ||
-                _purchaseToken == DAI,
-            "Invalid TOKEN"
-        );
-        uint256 amount;
-        if (_purchaseToken == USDT || _purchaseToken == USDC) {
-            amount = (priceInUSD * 10 ** 6) / CENTS;
-        } else {
-            amount = (priceInUSD * 10 ** 18) / CENTS;
+        for (uint256 i = startIndex; i < endIndex; i++) {
+            address user = participatedUsers[i];
+            uint256 listIndex = i - startIndex;
+            _userAddress[listIndex] = user;
         }
-        _transferTokensIn(_purchaseToken, msg.sender, amount);
-        IERC721(govAddress).mint(msg.sender);
+
+        return (_userAddress);
     }
 
-    function _transferTokensIn(
-        address tokenAddress,
-        address from,
+    function withdrawEther(
         uint256 amount
-    ) private {
-        if (USDT == tokenAddress) {
-            INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-            _token.transferFrom(from, address(this), amount);
-            bool success;
-            assembly {
-                switch returndatasize()
-                case 0 {
-                    // This is a non-standard ERC-20
-                    success := not(0) // set success to true
-                }
-                case 32 {
-                    // This is a compliant ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0) // Set success = returndata of external call
-                }
-                default {
-                    // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
-            }
-            require(success, "Transfer failed");
-        } else if (DAI == tokenAddress || USDC == tokenAddress) {
-            IERC20 _token = IERC20(tokenAddress);
-            _token.transferFrom(from, address(this), amount);
-        }
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
+        require(address(this).balance >= amount, "Insufficient balance");
+        tresury.transfer(amount);
     }
 
-    function _transferTokensOut(
+    /*
+     * @notice funds withdraw
+     * @param _tokenAddress: token address to transfer
+     * @param _value: token value to transfer from contract to owner
+     */
+    function fundsWithdrawal(
         address tokenAddress,
-        address to,
-        uint256 amount
-    ) private {
-        if (USDT == tokenAddress) {
-            INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-            _token.transfer(to, amount);
-            bool success;
-            assembly {
-                switch returndatasize()
-                case 0 {
-                    // This is a non-standard ERC-20
-                    success := not(0) // set success to true
-                }
-                case 32 {
-                    // This is a compliant ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0) // Set success = returndata of external call
-                }
-                default {
-                    // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
-            }
-            require(success, "Transfer failed");
-        } else if (DAI == tokenAddress || USDC == tokenAddress) {
-            IERC20 _token = IERC20(tokenAddress);
-            _token.transfer(to, amount);
-        }
-    }
-
-    function buyNFTWithETH(
-        bytes32[] memory proof
-    ) external payable whenNotPaused nonReentrant isWhitelisted(proof) {
-        require(msg.value >= priceInETH, "Incorrect amount");
-        IERC721(govAddress).mint(msg.sender);
-    }
-
-    function withdrawTokens(
-        address _erc20Token,
-        uint256 _amount
-    ) external onlyOwner nonReentrant whenPaused {
-        _transferTokensOut(_erc20Token, TREASURY, _amount);
-    }
-
-    function withdrawETH() external onlyOwner nonReentrant whenPaused {
-        require(address(this).balance > 0, "Insufficient Balance");
-        payable(TREASURY).transfer(address(this).balance);
+        uint256 _value
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
+        IERC20(tokenAddress).transfer(tresury, _value);
     }
 
     receive() external payable {}
