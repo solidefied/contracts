@@ -561,6 +561,7 @@ interface IGovernor is IERC721 {
     function _getCompletedProducts(
         uint _tokenId
     ) external view returns (address[] memory products);
+    function totalSupply() external returns (uint);
 }
 
 
@@ -800,6 +801,94 @@ library MerkleProof {
 }
 
 
+// File @openzeppelin/contracts/utils/ReentrancyGuard.sol@v5.0.2
+
+// Original license: SPDX_License_Identifier: MIT
+// OpenZeppelin Contracts (last updated v5.0.0) (utils/ReentrancyGuard.sol)
+
+pragma solidity ^0.8.20;
+
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ */
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant NOT_ENTERED = 1;
+    uint256 private constant ENTERED = 2;
+
+    uint256 private _status;
+
+    /**
+     * @dev Unauthorized reentrant call.
+     */
+    error ReentrancyGuardReentrantCall();
+
+    constructor() {
+        _status = NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and making it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        _nonReentrantBefore();
+        _;
+        _nonReentrantAfter();
+    }
+
+    function _nonReentrantBefore() private {
+        // On the first call to nonReentrant, _status will be NOT_ENTERED
+        if (_status == ENTERED) {
+            revert ReentrancyGuardReentrantCall();
+        }
+
+        // Any calls to nonReentrant after this point will fail
+        _status = ENTERED;
+    }
+
+    function _nonReentrantAfter() private {
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = NOT_ENTERED;
+    }
+
+    /**
+     * @dev Returns true if the reentrancy guard is currently set to "entered", which indicates there is a
+     * `nonReentrant` function in the call stack.
+     */
+    function _reentrancyGuardEntered() internal view returns (bool) {
+        return _status == ENTERED;
+    }
+}
+
+
 // File contracts/ISentimentScore.sol
 
 // Original license: SPDX_License_Identifier: MIT
@@ -852,6 +941,8 @@ pragma solidity 0.8.20;
 
 
 
+
+
 // Interface for non-standard ERC20 tokens to handle tokens that do not return a boolean on transfer and transferFrom.
 interface INonStandardERC20 {
     function totalSupply() external view returns (uint256);
@@ -876,22 +967,33 @@ interface INonStandardERC20 {
 }
 
 // Contract for distributing rewards, extends ERC20 token functionality and ownership features.
-contract RewardDistribution is AccessControl {
+contract RewardDistribution is AccessControl, ReentrancyGuard {
     // Structure to hold assignment details including governance list, Merkle root, amount, and active status.
     struct Assignment {
-        mapping(uint => bool) govList; // Governor TokenId
+        mapping(uint => bool) claimed; // Governor TokenId
         bytes32 merkleRoot; // merkleRoot is for a tress whose leaf is [Gov TokenID and Claimable Amount]
         uint256 amount;
         bool isActive;
         uint createdAt;
+        uint noOfGovernors;
     }
-    uint256 assessmentCost = 2000; // The cost required for assessment.
+
     mapping(address => Assignment) Assignments; // Mapping from product owner to their assignment.
-    address public USDT; // Address of the USDT token.
-    address payable TREASURY; // Address of the TREASURY to collect fees or unused funds.
-    address GovernanceNFT;
-    address SentimentScore;
+    uint256 assessmentCost = 2000; // The cost required for assessment.
+    address public immutable USDT; // Address of the USDT token.
+    address payable treasury; // Address of the treasury to collect fees or unused funds.
+    address governanceNFT;
+    address sentimentScore;
+
     uint private fee = 200; //in bps i.e 2%
+    uint totalfee;
+
+    mapping(uint => uint256) public lastClaimedRewardPerToken;
+    uint256 public totalRewardPerToken;
+    uint256 public totalDistributedRewards;
+
+    // uint public cumulativeRewards;
+    // uint public rewardPerTokenId;
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
@@ -901,18 +1003,31 @@ contract RewardDistribution is AccessControl {
         address userAddress,
         uint256 rewardAmount
     );
+    event DividendDistributed(uint256 amount);
+    event DividendClaimed(uint tokenId, uint256 amount);
 
-    // Constructor to set initial values for USDT token address and TREASURY.
+    // Constructor to set initial values for USDT token address and treasury.
     constructor(
         address _usdt,
         address _treasury,
         address _governanceNFT,
         address _sentimentScore
     ) {
+        require(_usdt != address(0), "USDT address cannot be zero");
+        require(_treasury != address(0), "Treasury address cannot be zero");
+        require(
+            _governanceNFT != address(0),
+            "GovernanceNFT address cannot be zero"
+        );
+        require(
+            _sentimentScore != address(0),
+            "SentimentScore address cannot be zero"
+        );
+
         USDT = _usdt;
-        TREASURY = payable(_treasury);
-        GovernanceNFT = _governanceNFT;
-        SentimentScore = _sentimentScore;
+        treasury = payable(_treasury);
+        governanceNFT = _governanceNFT;
+        sentimentScore = _sentimentScore;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -927,11 +1042,58 @@ contract RewardDistribution is AccessControl {
             _amount >= assessmentCost * (10 ** INonStandardERC20(USDT).decimals()),
             "Invalid Amount"
         );
-        doTransferIn(USDT, msg.sender, _amount);
-        doTransferOut(USDT, TREASURY, (fee * _amount) / 10000);
-        Assignments[msg.sender].amount = _amount;
-        Assignments[msg.sender].createdAt = block.timestamp;
+
+        uint256 feeAmount = (_amount * uint256(fee)) / 10000;
+        doTransferOut(USDT, treasury, feeAmount);
+        doTransferIn(USDT, msg.sender, _amount - feeAmount);
+
+        // Explicitly initializing the Assignment struct
+        Assignment storage assignment = Assignments[msg.sender];
+        assignment.amount = _amount - feeAmount;
+        assignment.isActive = false; // Explicitly setting to false initially
+        assignment.createdAt = block.timestamp; // Setting the creation time
+        assignment.noOfGovernors = 0; // Initialize to 0, update when known
+
+        totalfee += feeAmount;
+
         emit AssignmentCreated(msg.sender, _amount);
+    }
+
+    function distributeDividends(
+        uint256 _amount
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_amount > 0, "Amount must be positive");
+        doTransferIn(USDT, msg.sender, _amount);
+
+        uint256 totalTokens = IGovernor(governanceNFT).totalSupply();
+        if (totalTokens > 0) {
+            uint256 rewardPerTokenIncrease = _amount / totalTokens;
+            totalRewardPerToken += rewardPerTokenIncrease;
+            totalDistributedRewards += _amount;
+        }
+
+        emit DividendDistributed(_amount);
+    }
+
+    function claimDividend(uint _tokenId) external nonReentrant {
+        require(
+            IGovernor(governanceNFT).ownerOf(_tokenId) == msg.sender,
+            "Caller is not the token owner"
+        );
+        uint256 lastClaimed = lastClaimedRewardPerToken[_tokenId];
+        uint256 claimableReward = totalRewardPerToken - lastClaimed;
+
+        require(claimableReward > 0, "No reward available");
+
+        lastClaimedRewardPerToken[_tokenId] = totalRewardPerToken;
+        doTransferOut(USDT, msg.sender, claimableReward);
+
+        emit DividendClaimed(_tokenId, claimableReward);
+    }
+
+    function getDevidend(uint _tokenId) external view returns (uint rewards) {
+        uint256 lastClaimed = lastClaimedRewardPerToken[_tokenId];
+        return totalRewardPerToken - lastClaimed;
     }
 
     function getAssignment(
@@ -945,20 +1107,26 @@ contract RewardDistribution is AccessControl {
         );
     }
 
+    function getClaimStatusOfReward(address _projectOwner,uint _govId) public view returns(bool){
+        return Assignments[_projectOwner].claimed[_govId];
+    }
+
     // Admin function to set the Merkle root for reward distribution.
     //This will mint scoreNFT
     function mintSentimentScoreNFT(
         address _productId,
         bytes32 _merkleRoot,
+        uint _noOfGovernors,
         string memory _scoreNftUri
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        ISentimentScore scoreNFT = ISentimentScore(SentimentScore);
+        ISentimentScore scoreNFT = ISentimentScore(sentimentScore);
         require(
             Assignments[_productId].createdAt != 0,
             "Assignment doesn't exists"
         );
         Assignments[_productId].merkleRoot = _merkleRoot;
         Assignments[_productId].isActive = true;
+        Assignments[_productId].noOfGovernors = _noOfGovernors;
         scoreNFT.safeMint(_productId, _scoreNftUri);
         emit MerkleRootAdded(_productId, _merkleRoot);
     }
@@ -978,11 +1146,11 @@ contract RewardDistribution is AccessControl {
         return fee;
     }
 
-    // Admin function to update the TREASURY address.
+    // Admin function to update the treasury address.
     function setNewTresury(
         address _newTresury
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        TREASURY = payable(_newTresury);
+        treasury = payable(_newTresury);
     }
 
     // Admin function to enable or disable reward claims for a product owner.
@@ -997,10 +1165,9 @@ contract RewardDistribution is AccessControl {
     function claimReward(
         address _productId,
         bytes32[] calldata proof,
-        uint256 amount,
         uint _tokenId
-    ) external {
-        IGovernor govNFT = IGovernor(GovernanceNFT);
+    ) external nonReentrant {
+        IGovernor govNFT = IGovernor(governanceNFT);
         require(govNFT.balanceOf(msg.sender) == 1, "Not Authorized");
         require(govNFT.ownerOf(_tokenId) == msg.sender, "Not Authorized");
 
@@ -1010,34 +1177,43 @@ contract RewardDistribution is AccessControl {
             "Reward is not active for this Product"
         );
         require(
-            (Assignments[_productId].amount >= amount) &&
-                (INonStandardERC20(USDT).balanceOf(address(this)) >= amount),
-            "Reward Pool is empty"
+            INonStandardERC20(USDT).balanceOf(address(this)) >=
+                Assignments[_productId].amount,
+            "Insufficient Reward"
         );
         require(
-            !(Assignments[_productId].govList[_tokenId]),
+            !(Assignments[_productId].claimed[_tokenId]),
             "Already claimed"
         );
 
         bytes32 merkleRoot = Assignments[_productId].merkleRoot;
-        _verifyProof(merkleRoot, proof, amount, _tokenId);
+        _verifyProof(merkleRoot, proof, _tokenId);
 
-        Assignments[_productId].govList[_tokenId] = true;
-        Assignments[_productId].amount -= amount;
+        uint rewardPerGovernor = Assignments[msg.sender].amount /
+            Assignments[msg.sender].noOfGovernors;
+
+        Assignments[_productId].claimed[_tokenId] = true;
         govNFT._addProduct(_tokenId, _productId);
 
-        doTransferOut(USDT, msg.sender, amount);
-        emit RewardsClaimed(_productId, msg.sender, amount);
+        doTransferOut(USDT, msg.sender, rewardPerGovernor);
+        emit RewardsClaimed(_productId, msg.sender, rewardPerGovernor);
+    }
+
+    function getrewards(
+        address _productId
+    ) external view returns (uint rewards) {
+        return
+            Assignments[_productId].amount /
+            Assignments[_productId].noOfGovernors;
     }
 
     // Private function to verify Merkle proof for claim verification.
     function _verifyProof(
         bytes32 _merkleRoot,
         bytes32[] memory proof,
-        uint256 amount,
         uint tokenId
     ) private pure {
-        bytes32 leaf = keccak256(abi.encode(tokenId, amount));
+        bytes32 leaf = keccak256(abi.encode(tokenId));
         require(MerkleProof.verify(proof, _merkleRoot, leaf), "Invalid proof");
     }
 
@@ -1101,18 +1277,22 @@ contract RewardDistribution is AccessControl {
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
     }
 
-    // Admin function to transfer tokens from the contract to the TREASURY.
+    // Admin function to transfer tokens from the contract to the treasury.
     function withdrawDonatedTokens(
         address _tokenAddress,
         uint256 _value
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        doTransferOut(_tokenAddress, TREASURY, _value);
+    ) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+        doTransferOut(_tokenAddress, treasury, _value);
     }
 
-    // Admin function to transfer ETH from the contract to the TREASURY.
-    function withdrawDonatedETH() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    // Admin function to transfer ETH from the contract to the treasury.
+    function withdrawDonatedETH()
+        external
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         require(address(this).balance > 0, "Insufficient Balance");
-        payable(TREASURY).transfer(address(this).balance);
+        payable(treasury).transfer(address(this).balance);
     }
 
     // Function to receive Ether. msg.data must be empty
