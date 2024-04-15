@@ -156,6 +156,11 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         emit DividendClaimed(_tokenId, claimableReward);
     }
 
+    function getDevidend(uint _tokenId) external view returns (uint rewards) {
+        uint256 lastClaimed = lastClaimedRewardPerToken[_tokenId];
+        return totalRewardPerToken - lastClaimed;
+    }
+
     function getAssignment(
         address _productId
     ) external view returns (bytes32, uint, bool, uint) {
@@ -251,6 +256,14 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         doTransferOut(USDT, msg.sender, amount);
         emit RewardsClaimed(_productId, msg.sender, amount);
     }
+
+    // function getrewards(
+    //     address _productId,
+    //     uint _tokenId
+    // ) external view returns (uint rewards) {
+    //     uint256 lastClaimed = lastClaimedRewardPerToken[_tokenId];
+    //     return totalRewardPerToken - lastClaimed;
+    // }
 
     // Private function to verify Merkle proof for claim verification.
     function _verifyProof(
