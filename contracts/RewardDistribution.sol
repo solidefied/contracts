@@ -112,18 +112,11 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
             Assignments[msg.sender].createdAt == 0,
             "Assignment already created"
         );
-<<<<<<< HEAD
-        require(
-            _amount >= assessmentCost * (10 ** INonStandardERC20(USDT).decimals()),
-            "Invalid Amount"
-        );
-=======
         // require(
         //     _amount >=
         //         assessmentCost * 10 ** INonStandardERC20(USDT).decimals(),
         //     "Invalid Amount"
         // );
->>>>>>> 3430002c0fc1f8789bb0756b7a84a795a09f9b0b
 
         uint256 feeAmount = (assessmentCost * uint256(fee)) / 10000;
         doTransferOut(USDT, treasury, feeAmount);
