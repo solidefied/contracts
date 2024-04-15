@@ -49,6 +49,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         uint256 amount;
         bool isActive;
         uint createdAt;
+        uint noOfGovernors;
     }
 
     mapping(address => Assignment) Assignments; // Mapping from product owner to their assignment.
@@ -116,12 +117,19 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
             "Invalid Amount"
         );
 
-        uint256 feeDeduction = (fee * _amount) / 10000;
-        doTransferOut(USDT, treasury, feeDeduction);
-        doTransferIn(USDT, msg.sender, _amount - feeDeduction);
-        Assignments[msg.sender].amount =  _amount - feeDeduction;
-        Assignments[msg.sender].createdAt = block.timestamp;      
-        totalfee += fee;
+        uint256 feeAmount = (_amount * uint256(fee)) / 10000;
+        doTransferOut(USDT, treasury, feeAmount);
+        doTransferIn(USDT, msg.sender, _amount - feeAmount);
+
+        // Explicitly initializing the Assignment struct
+        Assignment storage assignment = Assignments[msg.sender];
+        assignment.amount = _amount - feeAmount;
+        assignment.isActive = false; // Explicitly setting to false initially
+        assignment.createdAt = block.timestamp; // Setting the creation time
+        assignment.noOfGovernors = 0; // Initialize to 0, update when known
+
+        totalfee += feeAmount;
+
         emit AssignmentCreated(msg.sender, _amount);
     }
 
@@ -182,6 +190,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
     function mintSentimentScoreNFT(
         address _productId,
         bytes32 _merkleRoot,
+        uint _noOfGovernors,
         string memory _scoreNftUri
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         ISentimentScore scoreNFT = ISentimentScore(sentimentScore);
@@ -191,6 +200,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         );
         Assignments[_productId].merkleRoot = _merkleRoot;
         Assignments[_productId].isActive = true;
+        Assignments[_productId].noOfGovernors = _noOfGovernors;
         scoreNFT.safeMint(_productId, _scoreNftUri);
         emit MerkleRootAdded(_productId, _merkleRoot);
     }
@@ -229,9 +239,8 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
     function claimReward(
         address _productId,
         bytes32[] calldata proof,
-        uint256 amount,
         uint _tokenId
-    ) external {
+    ) external nonReentrant {
         IGovernor govNFT = IGovernor(governanceNFT);
         require(govNFT.balanceOf(msg.sender) == 1, "Not Authorized");
         require(govNFT.ownerOf(_tokenId) == msg.sender, "Not Authorized");
@@ -242,9 +251,9 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
             "Reward is not active for this Product"
         );
         require(
-            (Assignments[_productId].amount >= amount) &&
-                (INonStandardERC20(USDT).balanceOf(address(this)) >= amount),
-            "Reward Pool is empty"
+            INonStandardERC20(USDT).balanceOf(address(this)) >=
+                Assignments[_productId].amount,
+            "Insufficient Reward"
         );
         require(
             !(Assignments[_productId].claimed[_tokenId]),
@@ -252,32 +261,33 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         );
 
         bytes32 merkleRoot = Assignments[_productId].merkleRoot;
-        _verifyProof(merkleRoot, proof, amount, _tokenId);
+        _verifyProof(merkleRoot, proof, _tokenId);
+
+        uint rewardPerGovernor = Assignments[msg.sender].amount /
+            Assignments[msg.sender].noOfGovernors;
 
         Assignments[_productId].claimed[_tokenId] = true;
-        Assignments[_productId].amount -= amount;
         govNFT._addProduct(_tokenId, _productId);
 
-        doTransferOut(USDT, msg.sender, amount);
-        emit RewardsClaimed(_productId, msg.sender, amount);
+        doTransferOut(USDT, msg.sender, rewardPerGovernor);
+        emit RewardsClaimed(_productId, msg.sender, rewardPerGovernor);
     }
 
-    // function getrewards(
-    //     address _productId,
-    //     uint _tokenId
-    // ) external view returns (uint rewards) {
-    //     uint256 lastClaimed = lastClaimedRewardPerToken[_tokenId];
-    //     return totalRewardPerToken - lastClaimed;
-    // }
+    function getrewards(
+        address _productId
+    ) external view returns (uint rewards) {
+        return
+            Assignments[_productId].amount /
+            Assignments[_productId].noOfGovernors;
+    }
 
     // Private function to verify Merkle proof for claim verification.
     function _verifyProof(
         bytes32 _merkleRoot,
         bytes32[] memory proof,
-        uint256 amount,
         uint tokenId
     ) private pure {
-        bytes32 leaf = keccak256(abi.encode(tokenId, amount));
+        bytes32 leaf = keccak256(abi.encode(tokenId));
         require(MerkleProof.verify(proof, _merkleRoot, leaf), "Invalid proof");
     }
 
@@ -345,12 +355,16 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
     function withdrawDonatedTokens(
         address _tokenAddress,
         uint256 _value
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         doTransferOut(_tokenAddress, treasury, _value);
     }
 
     // Admin function to transfer ETH from the contract to the treasury.
-    function withdrawDonatedETH() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function withdrawDonatedETH()
+        external
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         require(address(this).balance > 0, "Insufficient Balance");
         payable(treasury).transfer(address(this).balance);
     }
