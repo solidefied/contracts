@@ -17,4 +17,5 @@ interface IGovernor is IERC721 {
     function _getCompletedProducts(
         uint _tokenId
     ) external view returns (address[] memory products);
+    function totalSupply() external returns (uint);
 }
