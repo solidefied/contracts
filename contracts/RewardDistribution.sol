@@ -107,31 +107,31 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
     }
 
     // Function to create an assignment by product owners.
-    function createAssignment(uint256 _amount) external {
+    function createAssignment() external {
         require(
             Assignments[msg.sender].createdAt == 0,
             "Assignment already created"
         );
-        require(
-            _amount >=
-                assessmentCost * 10 ** INonStandardERC20(USDT).decimals(),
-            "Invalid Amount"
-        );
+        // require(
+        //     _amount >=
+        //         assessmentCost * 10 ** INonStandardERC20(USDT).decimals(),
+        //     "Invalid Amount"
+        // );
 
-        uint256 feeAmount = (_amount * uint256(fee)) / 10000;
+        uint256 feeAmount = (assessmentCost * uint256(fee)) / 10000;
         doTransferOut(USDT, treasury, feeAmount);
-        doTransferIn(USDT, msg.sender, _amount - feeAmount);
+        doTransferIn(USDT, msg.sender, assessmentCost - feeAmount);
 
         // Explicitly initializing the Assignment struct
         Assignment storage assignment = Assignments[msg.sender];
-        assignment.amount = _amount - feeAmount;
+        assignment.amount = assessmentCost - feeAmount;
         assignment.isActive = false; // Explicitly setting to false initially
         assignment.createdAt = block.timestamp; // Setting the creation time
         assignment.noOfGovernors = 0; // Initialize to 0, update when known
 
         totalfee += feeAmount;
 
-        emit AssignmentCreated(msg.sender, _amount);
+        emit AssignmentCreated(msg.sender, assessmentCost);
     }
 
     function distributeDividends(
