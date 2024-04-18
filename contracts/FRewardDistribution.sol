@@ -4,7 +4,6 @@
 
 // File @openzeppelin/contracts/access/IAccessControl.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
 // OpenZeppelin Contracts (last updated v5.0.0) (access/IAccessControl.sol)
 
 pragma solidity ^0.8.20;
@@ -106,7 +105,7 @@ interface IAccessControl {
 
 // File @openzeppelin/contracts/utils/Context.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v5.0.1) (utils/Context.sol)
 
 pragma solidity ^0.8.20;
@@ -138,7 +137,7 @@ abstract contract Context {
 
 // File @openzeppelin/contracts/utils/introspection/IERC165.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v5.0.0) (utils/introspection/IERC165.sol)
 
 pragma solidity ^0.8.20;
@@ -167,7 +166,7 @@ interface IERC165 {
 
 // File @openzeppelin/contracts/utils/introspection/ERC165.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v5.0.0) (utils/introspection/ERC165.sol)
 
 pragma solidity ^0.8.20;
@@ -196,7 +195,7 @@ abstract contract ERC165 is IERC165 {
 
 // File @openzeppelin/contracts/access/AccessControl.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v5.0.0) (access/AccessControl.sol)
 
 pragma solidity ^0.8.20;
@@ -407,7 +406,7 @@ abstract contract AccessControl is Context, IAccessControl, ERC165 {
 
 // File @openzeppelin/contracts/token/ERC721/IERC721.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v5.0.0) (token/ERC721/IERC721.sol)
 
 pragma solidity ^0.8.20;
@@ -544,7 +543,7 @@ interface IERC721 is IERC165 {
 
 // File contracts/IGovernor.sol
 
-// Original license: SPDX_License_Identifier: MIT
+
 pragma solidity ^0.8.20;
 
 interface IGovernor is IERC721 {
@@ -567,7 +566,7 @@ interface IGovernor is IERC721 {
 
 // File @openzeppelin/contracts/utils/cryptography/MerkleProof.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v5.0.0) (utils/cryptography/MerkleProof.sol)
 
 pragma solidity ^0.8.20;
@@ -803,7 +802,7 @@ library MerkleProof {
 
 // File @openzeppelin/contracts/utils/ReentrancyGuard.sol@v5.0.2
 
-// Original license: SPDX_License_Identifier: MIT
+
 // OpenZeppelin Contracts (last updated v5.0.0) (utils/ReentrancyGuard.sol)
 
 pragma solidity ^0.8.20;
@@ -891,7 +890,7 @@ abstract contract ReentrancyGuard {
 
 // File contracts/ISentimentScore.sol
 
-// Original license: SPDX_License_Identifier: MIT
+
 pragma solidity ^0.8.20;
 
 /**
@@ -933,7 +932,7 @@ interface ISentimentScore {
 ███████║╚██████╔╝███████╗██║██████╔╝███████╗██║     ██║███████╗██████╔╝
 ╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
 */
-// Original license: SPDX_License_Identifier: MIT
+
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity 0.8.20;
 
@@ -1038,18 +1037,11 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
             Assignments[msg.sender].createdAt == 0,
             "Assignment already created"
         );
-<<<<<<< HEAD
-        require(
-            _amount >= assessmentCost * (10 ** INonStandardERC20(USDT).decimals()),
-            "Invalid Amount"
-        );
-=======
         // require(
         //     _amount >=
         //         assessmentCost * 10 ** INonStandardERC20(USDT).decimals(),
         //     "Invalid Amount"
         // );
->>>>>>> 3430002c0fc1f8789bb0756b7a84a795a09f9b0b
 
         uint256 feeAmount = (assessmentCost * uint256(fee)) / 10000;
         doTransferOut(USDT, treasury, feeAmount);
