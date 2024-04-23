@@ -120,6 +120,15 @@ contract Governor is
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
     }
+    function getTokenOwnedBy(
+        address owner
+    ) public view returns (uint256 tokenId) {
+        require(
+            balanceOf(owner) == 1,
+            "Owner does not have exactly one token."
+        );
+        return tokenOfOwnerByIndex(owner, 0);
+    }
 
     function _update(
         address to,
