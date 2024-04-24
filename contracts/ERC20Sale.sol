@@ -12,35 +12,7 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-
-interface INonStandardERC20 {
-    function totalSupply() external view returns (uint256);
-
-    function balanceOf(address owner) external view returns (uint256 balance);
-
-    /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
-    function transfer(address dst, uint256 amount) external;
-
-    /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
-    function transferFrom(address src, address dst, uint256 amount) external;
-
-    function approve(
-        address spender,
-        uint256 amount
-    ) external returns (bool success);
-
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256 remaining);
-
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 amount
-    );
-}
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ERC20Sale is AccessControl, ReentrancyGuard {
     bytes32 public constant PRODUCT_OWNER = keccak256("PRODUCT_OWNER");
@@ -51,10 +23,11 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     bool public isPrivate; //Closed Sale: true, OpenSale : False // Default is OpenSale
     bytes32 public merkleRoot;
     uint256 public allowedUserBalance;
-    INonStandardERC20 public usdt;
+    IERC20 public paymentToken;
     uint256 public hardcap;
     uint256 public softcap;
     bool public isSaleLive;
+    address payable private treasury;
 
     address[] public participatedUsers;
     mapping(address => uint256) public claimable;
@@ -71,23 +44,25 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
      */
     constructor(
         uint256 _rate,
-        address _usdt,
+        address _paymentToken,
         uint256 _hardcap,
         uint256 _softcap,
         uint256 _allowedUserBalance,
         bytes32 _root,
         bool _isPrivate,
-        address _solidefiedAdmin
+        address _solidefiedAdmin,
+        address _treasury
     ) {
         require(softcap < hardcap, "Softcap should be less than hardcap");
         rate = _rate;
-        usdt = INonStandardERC20(_usdt);
+        paymentToken = IERC20(_paymentToken);
         hardcap = _hardcap;
         softcap = _softcap;
         allowedUserBalance = _allowedUserBalance;
         merkleRoot = _root;
         isPrivate = _isPrivate;
         solidefiedAdmin = _solidefiedAdmin;
+        treasury = payable(_treasury);
         _grantRole(DEFAULT_ADMIN_ROLE, solidefiedAdmin);
         _grantRole(PRODUCT_OWNER, msg.sender);
     }
@@ -185,7 +160,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         uint256 tokensPurchased = _amount * rate;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
-            _amount + usdt.balanceOf(address(this)) <= hardcap,
+            _amount + paymentToken.balanceOf(address(this)) <= hardcap,
             "Hardcap reached"
         );
         // for USDT
@@ -197,7 +172,15 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
             participatedUsers.push(msg.sender);
         }
         claimable[msg.sender] = userUpdatedBalance;
-        doTransferIn(address(usdt), msg.sender, _amount);
+        // doTransferIn(address(usdt), msg.sender, _amount);
+        require(
+            IERC20(paymentToken).transferFrom(
+                msg.sender,
+                address(this),
+                _amount
+            ),
+            "Transfer failed"
+        );
 
         emit ClaimableAmount(msg.sender, tokensPurchased);
     }
@@ -230,89 +213,17 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     }
 
     /*
-     * @notice do transfer in - tranfer token to contract
-     * @param tokenAddress: token address to transfer in contract
-     * @param from : user address from where to transfer token to contract
-     * @param amount : amount to trasnfer
-     */
-    function doTransferIn(
-        address tokenAddress,
-        address from,
-        uint256 amount
-    ) internal returns (uint256) {
-        INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        uint256 balanceBefore = INonStandardERC20(tokenAddress).balanceOf(
-            address(this)
-        );
-        _token.transferFrom(from, address(this), amount);
-        bool success;
-
-        assembly {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set success = returndata of external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        require(success, "TOKEN_TRANSFER_IN_FAILED");
-        // Calculate the amount that was actually transferred
-        uint256 balanceAfter = INonStandardERC20(tokenAddress).balanceOf(
-            address(this)
-        );
-        require(balanceAfter >= balanceBefore, "TOKEN_TRANSFER_IN_OVERFLOW");
-        return balanceAfter - balanceBefore; // underflow already checked above, just subtract
-    }
-
-    /*
-     * @notice do transfer out - tranfer token from contract
-     * @param tokenAddress: token address to transfer from contract
-     * @param to : user address to where transfer token from contract
-     * @param amount : amount to trasnfer
-     */
-    function doTransferOut(
-        address tokenAddress,
-        address to,
-        uint256 amount
-    ) internal {
-        INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        _token.transfer(to, amount);
-        bool success;
-        assembly {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a complaint ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set success = returndata of external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        require(success, "TOKEN_TRANSFER_OUT_FAILED");
-    }
-
-    /*
      * @notice funds withdraw
      * @param _value: usdt value to transfer from contract to owner
      */
     function fundsWithdrawal(
         uint256 _value
     ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
-        doTransferOut(address(usdt), _msgSender(), _value);
+        // doTransferOut(address(usdt), _msgSender(), _value);
+        require(
+            IERC20(paymentToken).transfer(treasury, _value),
+            "Token transfer failed"
+        );
     }
 
     /*
@@ -324,6 +235,9 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         address _tokenAddress,
         uint256 _value
     ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
-        doTransferOut(address(_tokenAddress), _msgSender(), _value);
+        require(
+            IERC20(_tokenAddress).transfer(treasury, _value),
+            "Token transfer failed"
+        );
     }
 }
