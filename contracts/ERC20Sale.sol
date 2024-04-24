@@ -91,14 +91,12 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
      * @param _hardcap: amount in usdt
      */
     function changeHardcap(uint256 _hardcap) public onlyRole(PRODUCT_OWNER) {
-        //Product Owner can not change this when the sale is live.
         require(!isSaleLive, "Sale is Live");
-        require(softcap < _hardcap, "hardcap should be greater than hardcap");
+        require(softcap < _hardcap, "Softcap should be less than hardcap");
         hardcap = _hardcap;
     }
 
     function changeSoftcap(uint256 _softcap) public onlyRole(PRODUCT_OWNER) {
-        //Product Owner can not change this when the sale is live.
         require(!isSaleLive, "Sale is Live");
         require(_softcap < hardcap, "Softcap should be less than hardcap");
         softcap = _softcap;
