@@ -19,13 +19,13 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
 
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
-    uint256 public rate;
+    uint256 private rate;
     bool public isPrivate; //Closed Sale: true, OpenSale : False // Default is OpenSale
     bytes32 public merkleRoot;
     uint256 public allowedUserBalance;
     IERC20 public paymentToken;
-    uint256 public hardcap;
-    uint256 public softcap;
+    uint256 private hardcap;
+    uint256 private softcap;
     bool public isSaleLive;
     address payable private treasury;
 
