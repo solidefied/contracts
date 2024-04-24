@@ -51,6 +51,7 @@ contract Governor is
     bool public isPrivate = false; //Closed Sale: true, OpenSale : False // Default is OpenSale
     address solidefiedAdmin = 0xEcE27420796b3C7fd55Bd7eA2d2bEc403e4c344c;
     address[] public participatedUsers;
+    uint public nftBought = 0;
 
     event SaleStarted();
     event SaleEnded();
@@ -79,6 +80,10 @@ contract Governor is
         require(tokenId < TOKEN_SUPPLY, "Limit Reached");
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+    }
+
+    function assignNFT(address _to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _mint(_to);
     }
 
     function tokenURI(
@@ -181,6 +186,7 @@ contract Governor is
         participatedUsers.push(msg.sender);
         IERC20(paymentToken).transferFrom(msg.sender, address(this), rate);
         _mint(msg.sender);
+        nftBought++;
     }
 
     function startSale() external onlyRole(PRODUCT_OWNER) {
@@ -193,6 +199,10 @@ contract Governor is
         require(isSaleActive, "Sale not active");
         isSaleActive = false;
         emit SaleEnded();
+    }
+
+    function getNftBought() external view returns (uint nft) {
+        return nftBought;
     }
 
     function isValid(
