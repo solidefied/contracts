@@ -30,15 +30,16 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         uint noOfGovernors;
     }
 
-    mapping(address => Assignment) Assignments; // Mapping from product owner to their assignment.
-    uint256 assessmentCost = 2000 * 10 ** 18; // The cost required for assessment.
+    mapping(address => Assignment) private Assignments; // Mapping from product owner to their assignment.
+    uint256 private assessmentCost = 2000 * 10 ** 18; // The cost required for assessment.
     address public immutable paymentToken; // Address of the Payment Token .
-    address payable treasury; // Address of the treasury to collect fees or unused funds.
+    address payable private treasury; // Address of the treasury to collect fees or unused funds.
     address governorNFT;
     address scoreNFT;
 
-    uint private fee = 200; //in bps i.e 2%
-    uint totalfee;
+    uint private fee = 200; // In basis points i.e., 2%
+    uint256 private constant BASIS_POINTS_TOTAL = 10000;
+    uint private totalfee;
 
     mapping(uint => uint256) public lastClaimedRewardPerToken;
     uint256 public totalRewardPerToken;
@@ -91,7 +92,12 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
             "Assignment already created"
         );
 
-        uint256 feeAmount = (assessmentCost * uint256(fee)) / 10000;
+        uint256 feeAmount = (assessmentCost * uint256(fee)) /
+            BASIS_POINTS_TOTAL;
+        require(
+            IERC20(paymentToken).balanceOf(msg.sender) >= assessmentCost,
+            "Insufficient funds to cover assessment"
+        );
 
         require(
             IERC20(paymentToken).transferFrom(
@@ -212,10 +218,10 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
     }
 
     // Admin function to update the treasury address.
-    function setNewTresury(
-        address _newTresury
+    function setNewTreasury(
+        address _newTreasury
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        treasury = payable(_newTresury);
+        treasury = payable(_newTreasury);
     }
 
     // Admin function to enable or disable reward claims for a product owner.
@@ -254,8 +260,8 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         bytes32 merkleRoot = Assignments[_productId].merkleRoot;
         _verifyProof(merkleRoot, proof, _tokenId);
 
-        uint rewardPerGovernor = Assignments[msg.sender].amount /
-            Assignments[msg.sender].noOfGovernors;
+        uint rewardPerGovernor = Assignments[_productId].amount /
+            Assignments[_productId].noOfGovernors;
 
         Assignments[_productId].claimed[_tokenId] = true;
         govNFT._addProduct(_tokenId, _productId);
