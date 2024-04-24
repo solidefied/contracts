@@ -19,13 +19,13 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
 
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
-    uint256 private rate;
+    uint256 private rate; // pass the value in 10** 18 terms
     bool public isPrivate; //Closed Sale: true, OpenSale : False // Default is OpenSale
     bytes32 public merkleRoot;
-    uint256 public allowedUserBalance;
+    uint256 public allowedUserBalance; // pass the value in 10** 18 terms
     IERC20 public paymentToken;
-    uint256 private hardcap;
-    uint256 private softcap;
+    uint256 private hardcap; // pass the value in 10** 18 terms
+    uint256 private softcap; // pass the value in 10** 18 terms
     bool public isSaleLive;
     address payable private treasury;
 
@@ -155,7 +155,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     }
 
     function _buy(uint256 _amount) private {
-        uint256 tokensPurchased = _amount * rate;
+        uint256 tokensPurchased = (_amount * rate) / 10 ** 18;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
             _amount + paymentToken.balanceOf(address(this)) <= hardcap,
@@ -163,7 +163,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         );
         // for USDT
         require(
-            userUpdatedBalance / rate <= allowedUserBalance,
+            (userUpdatedBalance / rate) * 10 ** 18 <= allowedUserBalance,
             "Exceeded allowance"
         );
         if (claimable[msg.sender] == 0) {
