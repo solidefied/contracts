@@ -35,33 +35,45 @@ contract Governor is
     uint256 public TOKEN_SUPPLY;
     address payable tresury =
         payable(0xEcE27420796b3C7fd55Bd7eA2d2bEc403e4c344c); //multisig address
-    string public baseURI;
+    string public uri;
     mapping(uint => address[]) CompletedProducts; //token id to product owner
 
     // Sale parameters
 
-    IERC20 public paymentToken =
-        IERC20(0xEcE27420796b3C7fd55Bd7eA2d2bEc403e4c344c);
-    uint256 public rate = 1 * 10 ** 18;
-    uint256 public softcap = 3;
-    uint256 public hardcap = 5;
+    IERC20 public paymentToken;
+    uint256 public rate;
+    uint256 public softcap;
+    uint256 public hardcap;
     bool public isSaleActive = false;
     bytes32 public merkleRoot;
     uint256 public mintCapPerWallet = 1;
     bool public isPrivate = false; //Closed Sale: true, OpenSale : False // Default is OpenSale
-    address solidefiedAdmin = 0xEcE27420796b3C7fd55Bd7eA2d2bEc403e4c344c;
+    address solidefiedAdmin;
     address[] public participatedUsers;
+    uint public nftBought = 0;
 
     event SaleStarted();
     event SaleEnded();
     event TokensPurchased(address buyer, uint256 amount);
 
-    constructor(string memory _baseUri) ERC721("Solidefied Governor", "POWER") {
+    constructor(
+        address _paymentToken,
+        uint _rate,
+        uint _softcap,
+        uint _hardcap,
+        address _solidefiedAdmin,
+        string memory _uri
+    ) ERC721("Solidefied Governor", "POWER") {
+        paymentToken = IERC20(_paymentToken);
+        rate = _rate * 10 ** 18;
+        softcap = _softcap;
+        hardcap = _hardcap;
+        solidefiedAdmin = _solidefiedAdmin;
         _setDefaultRoyalty(tresury, 200); // can change later
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PRODUCT_OWNER, msg.sender);
         TOKEN_SUPPLY = 5;
-        baseURI = _baseUri;
+        uri = _uri;
     }
 
     function _addProduct(uint _tokenId, address _productId) private {
@@ -78,6 +90,11 @@ contract Governor is
         uint256 tokenId = _nextTokenId++;
         require(tokenId < TOKEN_SUPPLY, "Limit Reached");
         _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
+    }
+
+    function assignNFT(address _to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _mint(_to);
     }
 
     function tokenURI(
@@ -99,10 +116,8 @@ contract Governor is
         TOKEN_SUPPLY = _tokenSupply;
     }
 
-    function setBaseURI(
-        string memory _uri
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        baseURI = _uri;
+    function setURI(string memory _uri) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uri = _uri;
     }
 
     function setTresury(
@@ -117,8 +132,14 @@ contract Governor is
         _grantRole(PRODUCT_OWNER, _user);
     }
 
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseURI;
+    function getTokenOwnedBy(
+        address owner
+    ) public view returns (uint256 tokenId) {
+        require(
+            balanceOf(owner) == 1,
+            "Owner does not have exactly one token."
+        );
+        return tokenOfOwnerByIndex(owner, 0);
     }
 
     function _update(
@@ -176,6 +197,7 @@ contract Governor is
         participatedUsers.push(msg.sender);
         IERC20(paymentToken).transferFrom(msg.sender, address(this), rate);
         _mint(msg.sender);
+        nftBought++;
     }
 
     function startSale() external onlyRole(PRODUCT_OWNER) {
@@ -188,6 +210,10 @@ contract Governor is
         require(isSaleActive, "Sale not active");
         isSaleActive = false;
         emit SaleEnded();
+    }
+
+    function getNftBought() external view returns (uint nft) {
+        return nftBought;
     }
 
     function isValid(

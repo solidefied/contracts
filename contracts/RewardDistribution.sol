@@ -14,31 +14,9 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IGovernor.sol";
 import "./ISentimentScore.sol";
-
-// Interface for non-standard ERC20 tokens to handle tokens that do not return a boolean on transfer and transferFrom.
-interface INonStandardERC20 {
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address owner) external view returns (uint256 balance);
-    function decimals() external view returns (uint256);
-    function transfer(address dst, uint256 amount) external;
-    function transferFrom(address src, address dst, uint256 amount) external;
-    function approve(
-        address spender,
-        uint256 amount
-    ) external returns (bool success);
-    function allowance(
-        address owner,
-        address spender
-    ) external view returns (uint256 remaining);
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 amount
-    );
-}
 
 // Contract for distributing rewards, extends ERC20 token functionality and ownership features.
 contract RewardDistribution is AccessControl, ReentrancyGuard {
@@ -52,22 +30,20 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         uint noOfGovernors;
     }
 
-    mapping(address => Assignment) Assignments; // Mapping from product owner to their assignment.
-    uint256 assessmentCost = 2000; // The cost required for assessment.
-    address public immutable USDT; // Address of the USDT token.
-    address payable treasury; // Address of the treasury to collect fees or unused funds.
-    address governanceNFT;
-    address sentimentScore;
+    mapping(address => Assignment) private Assignments; // Mapping from product owner to their assignment.
+    uint256 private assessmentCost = 2000 * 10 ** 18; // The cost required for assessment.
+    address public immutable paymentToken; // Address of the Payment Token .
+    address payable private treasury; // Address of the treasury to collect fees or unused funds.
+    address governorNFT;
+    address scoreNFT;
 
-    uint private fee = 200; //in bps i.e 2%
-    uint totalfee;
+    uint private fee = 200; // In basis points i.e., 2%
+    uint256 private constant BASIS_POINTS_TOTAL = 10000;
+    uint private totalfee;
 
     mapping(uint => uint256) public lastClaimedRewardPerToken;
     uint256 public totalRewardPerToken;
     uint256 public totalDistributedRewards;
-
-    // uint public cumulativeRewards;
-    // uint public rewardPerTokenId;
 
     // Events for logging activities on the blockchain.
     event AssignmentCreated(address _user, uint256 claimableAmount);
@@ -82,26 +58,29 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
 
     // Constructor to set initial values for USDT token address and treasury.
     constructor(
-        address _usdt,
+        address _paymentToken,
         address _treasury,
-        address _governanceNFT,
-        address _sentimentScore
+        address _governorNFT,
+        address _scoreNFT
     ) {
-        require(_usdt != address(0), "USDT address cannot be zero");
+        require(
+            _paymentToken != address(0),
+            "Payment Token address cannot be zero"
+        );
         require(_treasury != address(0), "Treasury address cannot be zero");
         require(
-            _governanceNFT != address(0),
+            _governorNFT != address(0),
             "GovernanceNFT address cannot be zero"
         );
         require(
-            _sentimentScore != address(0),
+            _scoreNFT != address(0),
             "SentimentScore address cannot be zero"
         );
 
-        USDT = _usdt;
+        paymentToken = _paymentToken;
         treasury = payable(_treasury);
-        governanceNFT = _governanceNFT;
-        sentimentScore = _sentimentScore;
+        governorNFT = _governorNFT;
+        scoreNFT = _scoreNFT;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -112,15 +91,26 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
             Assignments[msg.sender].createdAt == 0,
             "Assignment already created"
         );
-        // require(
-        //     _amount >=
-        //         assessmentCost * 10 ** INonStandardERC20(USDT).decimals(),
-        //     "Invalid Amount"
-        // );
 
-        uint256 feeAmount = (assessmentCost * uint256(fee)) / 10000;
-        doTransferOut(USDT, treasury, feeAmount);
-        doTransferIn(USDT, msg.sender, assessmentCost - feeAmount);
+        uint256 feeAmount = (assessmentCost * uint256(fee)) /
+            BASIS_POINTS_TOTAL;
+        require(
+            IERC20(paymentToken).balanceOf(msg.sender) >= assessmentCost,
+            "Insufficient funds to cover assessment"
+        );
+
+        require(
+            IERC20(paymentToken).transferFrom(
+                msg.sender,
+                address(this),
+                assessmentCost
+            ),
+            "Transfer failed"
+        );
+        require(
+            IERC20(paymentToken).transfer(treasury, feeAmount),
+            "Token transfer failed"
+        );
 
         // Explicitly initializing the Assignment struct
         Assignment storage assignment = Assignments[msg.sender];
@@ -138,9 +128,16 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         uint256 _amount
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_amount > 0, "Amount must be positive");
-        doTransferIn(USDT, msg.sender, _amount);
+        require(
+            IERC20(paymentToken).transferFrom(
+                msg.sender,
+                address(this),
+                _amount
+            ),
+            "Transfer failed"
+        );
 
-        uint256 totalTokens = IGovernor(governanceNFT).totalSupply();
+        uint256 totalTokens = IGovernor(governorNFT).totalSupply();
         if (totalTokens > 0) {
             uint256 rewardPerTokenIncrease = _amount / totalTokens;
             totalRewardPerToken += rewardPerTokenIncrease;
@@ -152,7 +149,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
 
     function claimDividend(uint _tokenId) external nonReentrant {
         require(
-            IGovernor(governanceNFT).ownerOf(_tokenId) == msg.sender,
+            IGovernor(governorNFT).ownerOf(_tokenId) == msg.sender,
             "Caller is not the token owner"
         );
         uint256 lastClaimed = lastClaimedRewardPerToken[_tokenId];
@@ -161,7 +158,10 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         require(claimableReward > 0, "No reward available");
 
         lastClaimedRewardPerToken[_tokenId] = totalRewardPerToken;
-        doTransferOut(USDT, msg.sender, claimableReward);
+        require(
+            IERC20(paymentToken).transfer(msg.sender, claimableReward),
+            "Token transfer failed"
+        );
 
         emit DividendClaimed(_tokenId, claimableReward);
     }
@@ -194,7 +194,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         uint _noOfGovernors,
         string memory _scoreNftUri
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        ISentimentScore scoreNFT = ISentimentScore(sentimentScore);
+        ISentimentScore nft = ISentimentScore(scoreNFT);
         require(
             Assignments[_productId].createdAt != 0,
             "Assignment doesn't exists"
@@ -202,7 +202,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         Assignments[_productId].merkleRoot = _merkleRoot;
         Assignments[_productId].isActive = true;
         Assignments[_productId].noOfGovernors = _noOfGovernors;
-        scoreNFT.safeMint(_productId, _scoreNftUri);
+        nft.safeMint(_productId, _scoreNftUri);
         emit MerkleRootAdded(_productId, _merkleRoot);
     }
 
@@ -222,10 +222,10 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
     }
 
     // Admin function to update the treasury address.
-    function setNewTresury(
-        address _newTresury
+    function setNewTreasury(
+        address _newTreasury
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        treasury = payable(_newTresury);
+        treasury = payable(_newTreasury);
     }
 
     // Admin function to enable or disable reward claims for a product owner.
@@ -242,7 +242,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         bytes32[] calldata proof,
         uint _tokenId
     ) external nonReentrant {
-        IGovernor govNFT = IGovernor(governanceNFT);
+        IGovernor govNFT = IGovernor(governorNFT);
         require(govNFT.balanceOf(msg.sender) == 1, "Not Authorized");
         require(govNFT.ownerOf(_tokenId) == msg.sender, "Not Authorized");
 
@@ -252,7 +252,7 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
             "Reward is not active for this Product"
         );
         require(
-            INonStandardERC20(USDT).balanceOf(address(this)) >=
+            IERC20(paymentToken).balanceOf(address(this)) >=
                 Assignments[_productId].amount,
             "Insufficient Reward"
         );
@@ -264,13 +264,17 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         bytes32 merkleRoot = Assignments[_productId].merkleRoot;
         _verifyProof(merkleRoot, proof, _tokenId);
 
-        uint rewardPerGovernor = Assignments[msg.sender].amount /
-            Assignments[msg.sender].noOfGovernors;
+        uint rewardPerGovernor = Assignments[_productId].amount /
+            Assignments[_productId].noOfGovernors;
 
         Assignments[_productId].claimed[_tokenId] = true;
         govNFT._addProduct(_tokenId, _productId);
 
-        doTransferOut(USDT, msg.sender, rewardPerGovernor);
+        require(
+            IERC20(paymentToken).transfer(msg.sender, rewardPerGovernor),
+            "Token transfer failed"
+        );
+
         emit RewardsClaimed(_productId, msg.sender, rewardPerGovernor);
     }
 
@@ -292,72 +296,15 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         require(MerkleProof.verify(proof, _merkleRoot, leaf), "Invalid proof");
     }
 
-    // Internal function to handle incoming token transfers to the contract.
-    function doTransferIn(
-        address tokenAddress,
-        address from,
-        uint256 amount
-    ) internal returns (uint256) {
-        INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        uint256 balanceBefore = INonStandardERC20(tokenAddress).balanceOf(
-            address(this)
-        );
-        _token.transferFrom(from, address(this), amount);
-        bool success;
-        assembly {
-            switch returndatasize()
-            case 0 {
-                success := not(0)
-            } // Non-standard ERC-20
-            case 32 {
-                // Compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0)
-            }
-            default {
-                revert(0, 0)
-            } // Non-compliant ERC-20
-        }
-        require(success, "TOKEN_TRANSFER_IN_FAILED");
-        uint256 balanceAfter = INonStandardERC20(tokenAddress).balanceOf(
-            address(this)
-        );
-        require(balanceAfter >= balanceBefore, "TOKEN_TRANSFER_IN_OVERFLOW");
-        return balanceAfter - balanceBefore;
-    }
-
-    // Internal function to handle outgoing token transfers from the contract.
-    function doTransferOut(
-        address tokenAddress,
-        address to,
-        uint256 amount
-    ) internal {
-        INonStandardERC20 _token = INonStandardERC20(tokenAddress);
-        _token.transfer(to, amount);
-        bool success;
-        assembly {
-            switch returndatasize()
-            case 0 {
-                success := not(0)
-            } // Non-standard ERC-20
-            case 32 {
-                // Compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0)
-            }
-            default {
-                revert(0, 0)
-            } // Non-compliant ERC-20
-        }
-        require(success, "TOKEN_TRANSFER_OUT_FAILED");
-    }
-
     // Admin function to transfer tokens from the contract to the treasury.
     function withdrawDonatedTokens(
         address _tokenAddress,
         uint256 _value
     ) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        doTransferOut(_tokenAddress, treasury, _value);
+        require(
+            IERC20(_tokenAddress).transfer(treasury, _value),
+            "Token transfer failed"
+        );
     }
 
     // Admin function to transfer ETH from the contract to the treasury.
