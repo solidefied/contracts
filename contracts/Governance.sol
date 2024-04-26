@@ -109,12 +109,6 @@ contract Governor is
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setDefaultRoyalty(_receiver, _royaltyRate);
     }
-    //TODO: Remove it
-    function setTokenSupply(
-        uint256 _tokenSupply
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        TOKEN_SUPPLY = _tokenSupply;
-    }
 
     function setURI(string memory _uri) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uri = _uri;
