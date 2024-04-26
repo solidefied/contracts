@@ -224,6 +224,18 @@ contract RewardDistribution is AccessControl, ReentrancyGuard {
         treasury = payable(_newTreasury);
     }
 
+    function setNewGovernorNFT(
+        address _newAddress
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        governorNFT = _newAddress;
+    }
+
+    function setNewScoreNFT(
+        address _newAddress
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        scoreNFT = _newAddress;
+    }
+
     // Admin function to enable or disable reward claims for a product owner.
     function setRewardClaim(
         address _productId,
