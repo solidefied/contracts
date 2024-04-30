@@ -53,7 +53,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         address _solidefiedAdmin,
         address _treasury
     ) {
-        require(softcap < hardcap, "Softcap should be less than hardcap");
+        require(_softcap <= _hardcap, "Softcap should be less than hardcap");
         rate = _rate;
         paymentToken = IERC20(_paymentToken);
         hardcap = _hardcap;
