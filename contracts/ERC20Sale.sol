@@ -1,4 +1,13 @@
+/*
+███████╗ ██████╗ ██╗     ██╗██████╗ ███████╗███████╗██╗███████╗██████╗ 
+██╔════╝██╔═══██╗██║     ██║██╔══██╗██╔════╝██╔════╝██║██╔════╝██╔══██╗
+███████╗██║   ██║██║     ██║██║  ██║█████╗  █████╗  ██║█████╗  ██║  ██║
+╚════██║██║   ██║██║     ██║██║  ██║██╔══╝  ██╔══╝  ██║██╔══╝  ██║  ██║
+███████║╚██████╔╝███████╗██║██████╔╝███████╗██║     ██║███████╗██████╔╝
+╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
+*/
 // SPDX-License-Identifier: MIT
+// Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -10,15 +19,17 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     bytes32 public constant PRODUCT_OWNER = keccak256("PRODUCT_OWNER");
 
     event ClaimableAmount(address _user, uint256 _claimableAmount);
+    event Refund(address _user, uint256 _amount);
 
     uint256 private rate; // pass the value in 10** 18 terms
-    bool public isPrivate; // Closed Sale: true, OpenSale : False // Default is OpenSale
+    bool public isPrivate; //Closed Sale: true, OpenSale : False // Default is OpenSale
     bytes32 public merkleRoot;
     uint256 public allowedUserBalance; // pass the value in 10** 18 terms
     IERC20 public paymentToken;
     uint256 private hardcap; // pass the value in 10** 18 terms
     uint256 private softcap; // pass the value in 10** 18 terms
     bool public isSaleLive;
+    bool public softCapReached;
     address payable private treasury;
 
     address[] public participatedUsers;
@@ -30,9 +41,10 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
      * @param _rate: rate of token
      * @param _paymentToken: payment token address
      * @param _hardcap: amount to raise
-     * @param _allowedUserBalance: max allowed purchase of payment tokens per user
-     * @param _root: merkle root for whitelist
-     * @param _isPrivate: sale type (true for closed sale, false for open sale)
+     * @param _softcap: amount to reach for the sale to be successful
+     * @param _allowedUserBalance: max allowed purchase of payment token per user
+     * @param _root: Merkle root for whitelist (0 for open sale)
+     * @param _isPrivate: true for closed sale, false for open sale
      * @param _solidefiedAdmin: admin address
      * @param _treasury: treasury address
      */
@@ -80,12 +92,18 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     function endSale() external onlyRole(PRODUCT_OWNER) returns (bool) {
         require(isSaleLive, "Sale is already ended");
         isSaleLive = false;
+
+        // Check if soft cap is reached
+        if (paymentToken.balanceOf(address(this)) >= softcap) {
+            softCapReached = true;
+        }
+
         return isSaleLive;
     }
 
     /*
      * @notice Change Hardcap
-     * @param _hardcap: amount in payment token
+     * @param _hardcap: amount in payment tokens
      */
     function changeHardcap(uint256 _hardcap) public onlyRole(PRODUCT_OWNER) {
         require(!isSaleLive, "Sale is Live");
@@ -96,10 +114,6 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         hardcap = _hardcap;
     }
 
-    /*
-     * @notice Change Softcap
-     * @param _softcap: amount in payment token
-     */
     function changeSoftcap(uint256 _softcap) public onlyRole(PRODUCT_OWNER) {
         require(!isSaleLive, "Sale is Live");
         require(
@@ -120,7 +134,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
 
     /*
      * @notice Change Allowed user balance
-     * @param _allowedUserBalance: amount allowed per user to purchase tokens in payment token
+     * @param _allowedUserBalance: amount allowed per user to purchase tokens in payment tokens
      */
     function changeAllowedUserBalance(
         uint256 _allowedUserBalance
@@ -130,16 +144,16 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     }
 
     /*
-     * @notice get total number of participated user
-     * @return no of participated user
+     * @notice get total number of participated users
+     * @return number of participated users
      */
     function getTotalParticipatedUser() public view returns (uint256) {
         return participatedUsers.length;
     }
 
     /*
-     * @notice Buy Token with payment token
-     * @param _amount: amount of payment token
+     * @notice Buy Token with payment tokens
+     * @param _amount: amount of payment tokens
      */
     function buyInOpenSale(uint256 _amount) external nonReentrant {
         require(isSaleLive, "Sale is not live");
@@ -163,14 +177,18 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         uint256 tokensPurchased = (_amount * rate) / 10 ** 18;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
-            paymentToken.balanceOf(address(this)) + _amount <= hardcap,
+            _amount + paymentToken.balanceOf(address(this)) <= hardcap,
             "Hardcap reached"
         );
+
+        // Ensure the user does not exceed the allowed balance
         require(userUpdatedBalance <= allowedUserBalance, "Exceeded allowance");
+
         if (claimable[msg.sender] == 0) {
             participatedUsers.push(msg.sender);
         }
         claimable[msg.sender] = userUpdatedBalance;
+
         require(
             paymentToken.transferFrom(msg.sender, address(this), _amount),
             "Transfer failed"
@@ -182,7 +200,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     /*
      * @notice get user list
      * @return userAddress: user address list
-     * @return amount: user wise claimable amount list
+     * @return amount : user wise claimable amount list
      */
     function getUsersList(
         uint256 startIndex,
@@ -207,20 +225,21 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     }
 
     /*
-     * @notice funds withdraw
-     * @param _value: payment token value to transfer from contract to treasury
+     * @notice Withdraw funds
+     * @param _value: amount to transfer from contract to treasury
      */
     function fundsWithdrawal(
         uint256 _value
     ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
+        require(softCapReached, "Softcap not reached, cannot withdraw funds");
         require(
-            paymentToken.transfer(treasury, _value),
+            IERC20(paymentToken).transfer(treasury, _value),
             "Token transfer failed"
         );
     }
 
     /*
-     * @notice funds withdraw
+     * @notice Transfer any ERC20 tokens
      * @param _tokenAddress: token address to transfer
      * @param _value: token value to transfer from contract to treasury
      */
@@ -228,9 +247,27 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         address _tokenAddress,
         uint256 _value
     ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
+        require(softCapReached, "Softcap not reached, cannot transfer tokens");
         require(
             IERC20(_tokenAddress).transfer(treasury, _value),
             "Token transfer failed"
         );
+    }
+
+    /*
+     * @notice Refund users if softcap is not reached
+     */
+    function refund() external nonReentrant {
+        require(!softCapReached, "Softcap reached, refunds are not available");
+        uint256 amount = claimable[msg.sender];
+        require(amount > 0, "No claimable amount to refund");
+
+        claimable[msg.sender] = 0;
+        require(
+            paymentToken.transfer(msg.sender, amount),
+            "Refund transfer failed"
+        );
+
+        emit Refund(msg.sender, amount);
     }
 }
