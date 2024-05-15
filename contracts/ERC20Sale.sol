@@ -1,14 +1,6 @@
-/*
-███████╗ ██████╗ ██╗     ██╗██████╗ ███████╗███████╗██╗███████╗██████╗ 
-██╔════╝██╔═══██╗██║     ██║██╔══██╗██╔════╝██╔════╝██║██╔════╝██╔══██╗
-███████╗██║   ██║██║     ██║██║  ██║█████╗  █████╗  ██║█████╗  ██║  ██║
-╚════██║██║   ██║██║     ██║██║  ██║██╔══╝  ██╔══╝  ██║██╔══╝  ██║  ██║
-███████║╚██████╔╝███████╗██║██████╔╝███████╗██║     ██║███████╗██████╔╝
-╚══════╝ ╚═════╝ ╚══════╝╚═╝╚═════╝ ╚══════╝╚═╝     ╚═╝╚══════╝╚═════╝ 
-*/
 // SPDX-License-Identifier: MIT
-// Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity 0.8.20;
+
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
@@ -20,7 +12,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     event ClaimableAmount(address _user, uint256 _claimableAmount);
 
     uint256 private rate; // pass the value in 10** 18 terms
-    bool public isPrivate; //Closed Sale: true, OpenSale : False // Default is OpenSale
+    bool public isPrivate; // Closed Sale: true, OpenSale : False // Default is OpenSale
     bytes32 public merkleRoot;
     uint256 public allowedUserBalance; // pass the value in 10** 18 terms
     IERC20 public paymentToken;
@@ -36,11 +28,13 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     /*
      * @notice Initialize the contract
      * @param _rate: rate of token
-     * @param _usdt: usdt token address
+     * @param _paymentToken: payment token address
      * @param _hardcap: amount to raise
-     * @param _allowedUserBalance: max allowed purchase of usdt per user
-     * _root = 0 for Open Sale,
-     *For Open sale, isPrivate = False, For Closed Sale isPrivate= True
+     * @param _allowedUserBalance: max allowed purchase of payment tokens per user
+     * @param _root: merkle root for whitelist
+     * @param _isPrivate: sale type (true for closed sale, false for open sale)
+     * @param _solidefiedAdmin: admin address
+     * @param _treasury: treasury address
      */
     constructor(
         uint256 _rate,
@@ -53,7 +47,10 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         address _solidefiedAdmin,
         address _treasury
     ) {
-        require(_softcap <= _hardcap, "Softcap should be less than hardcap");
+        require(
+            _softcap <= _hardcap,
+            "Softcap should be less than or equal to hardcap"
+        );
         rate = _rate;
         paymentToken = IERC20(_paymentToken);
         hardcap = _hardcap;
@@ -88,38 +85,46 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
 
     /*
      * @notice Change Hardcap
-     * @param _hardcap: amount in usdt
+     * @param _hardcap: amount in payment token
      */
     function changeHardcap(uint256 _hardcap) public onlyRole(PRODUCT_OWNER) {
         require(!isSaleLive, "Sale is Live");
-        require(softcap < _hardcap, "Softcap should be less than hardcap");
+        require(
+            softcap <= _hardcap,
+            "Softcap should be less than or equal to hardcap"
+        );
         hardcap = _hardcap;
     }
 
+    /*
+     * @notice Change Softcap
+     * @param _softcap: amount in payment token
+     */
     function changeSoftcap(uint256 _softcap) public onlyRole(PRODUCT_OWNER) {
         require(!isSaleLive, "Sale is Live");
-        require(_softcap < hardcap, "Softcap should be less than hardcap");
+        require(
+            _softcap <= hardcap,
+            "Softcap should be less than or equal to hardcap"
+        );
         softcap = _softcap;
     }
 
     /*
      * @notice Change Rate
-     * @param _rate: token rate per usdt
+     * @param _rate: token rate per payment token
      */
     function changeRate(uint256 _rate) public onlyRole(PRODUCT_OWNER) {
-        //Product Owner can not change this when the sale is live.
         require(!isSaleLive, "Sale is Live");
         rate = _rate;
     }
 
     /*
      * @notice Change Allowed user balance
-     * @param _allowedUserBalance: amount allowed per user to purchase tokens in usdt
+     * @param _allowedUserBalance: amount allowed per user to purchase tokens in payment token
      */
     function changeAllowedUserBalance(
         uint256 _allowedUserBalance
     ) public onlyRole(PRODUCT_OWNER) {
-        //Product Owner can not change this when the sale is live.
         require(!isSaleLive, "Sale is Live");
         allowedUserBalance = _allowedUserBalance;
     }
@@ -133,8 +138,8 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     }
 
     /*
-     * @notice Buy Token with USDT
-     * @param _amount: amount of usdt
+     * @notice Buy Token with payment token
+     * @param _amount: amount of payment token
      */
     function buyInOpenSale(uint256 _amount) external nonReentrant {
         require(isSaleLive, "Sale is not live");
@@ -158,25 +163,16 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
         uint256 tokensPurchased = (_amount * rate) / 10 ** 18;
         uint256 userUpdatedBalance = claimable[msg.sender] + tokensPurchased;
         require(
-            _amount + paymentToken.balanceOf(address(this)) <= hardcap,
+            paymentToken.balanceOf(address(this)) + _amount <= hardcap,
             "Hardcap reached"
         );
-        // for USDT
-        require(
-            (userUpdatedBalance / rate) * 10 ** 18 <= allowedUserBalance,
-            "Exceeded allowance"
-        );
+        require(userUpdatedBalance <= allowedUserBalance, "Exceeded allowance");
         if (claimable[msg.sender] == 0) {
             participatedUsers.push(msg.sender);
         }
         claimable[msg.sender] = userUpdatedBalance;
-        // doTransferIn(address(usdt), msg.sender, _amount);
         require(
-            IERC20(paymentToken).transferFrom(
-                msg.sender,
-                address(this),
-                _amount
-            ),
+            paymentToken.transferFrom(msg.sender, address(this), _amount),
             "Transfer failed"
         );
 
@@ -186,7 +182,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     /*
      * @notice get user list
      * @return userAddress: user address list
-     * @return amount : user wise claimable amount list
+     * @return amount: user wise claimable amount list
      */
     function getUsersList(
         uint256 startIndex,
@@ -212,14 +208,13 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
 
     /*
      * @notice funds withdraw
-     * @param _value: usdt value to transfer from contract to owner
+     * @param _value: payment token value to transfer from contract to treasury
      */
     function fundsWithdrawal(
         uint256 _value
     ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
-        // doTransferOut(address(usdt), _msgSender(), _value);
         require(
-            IERC20(paymentToken).transfer(treasury, _value),
+            paymentToken.transfer(treasury, _value),
             "Token transfer failed"
         );
     }
@@ -227,7 +222,7 @@ contract ERC20Sale is AccessControl, ReentrancyGuard {
     /*
      * @notice funds withdraw
      * @param _tokenAddress: token address to transfer
-     * @param _value: token value to transfer from contract to owner
+     * @param _value: token value to transfer from contract to treasury
      */
     function transferAnyERC20Tokens(
         address _tokenAddress,
